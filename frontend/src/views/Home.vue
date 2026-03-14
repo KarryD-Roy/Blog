@@ -2,49 +2,11 @@
   <div class="page">
     <h1 class="page-title">最新文章</h1>
 
-    <section class="card" style="cursor: default">
-      <h2 class="card-title" style="margin-bottom: 0.6rem">
-        {{ editingPost ? '编辑文章' : '新增文章' }}
-      </h2>
-      <div class="editor-grid">
-        <input
-          v-model="form.title"
-          class="input"
-          type="text"
-          placeholder="标题（必填）"
-        />
-        <input
-          v-model="form.summary"
-          class="input"
-          type="text"
-          placeholder="摘要 / 简短说明"
-        />
-        <input
-          v-model="form.tags"
-          class="input"
-          type="text"
-          placeholder="标签，以英文逗号分隔，例如：Vue,后端,随笔"
-        />
-        <textarea
-          v-model="form.content"
-          class="input"
-          rows="5"
-          placeholder="正文内容，支持纯文本、HTML，以及 Markdown 语法（详情见 README）"
-        ></textarea>
-        <div class="editor-actions">
-          <button class="btn primary" @click="submitPost">
-            {{ editingPost ? '保存修改' : '发布文章' }}
-          </button>
-          <button
-            v-if="editingPost"
-            class="btn ghost"
-            @click="resetForm"
-          >
-            取消编辑
-          </button>
-        </div>
-      </div>
-    </section>
+    <div class="toolbar">
+      <button class="btn primary" @click="openCreate">
+        新增文章
+      </button>
+    </div>
     <div v-if="loading" class="center-text">加载中...</div>
     <div v-else>
       <article
@@ -92,13 +54,74 @@
         <button :disabled="page === totalPages" @click="changePage(page + 1)">下一页</button>
       </div>
     </div>
+
+    <div v-if="showEditor" class="modal-backdrop">
+      <div class="modal">
+        <h2 class="card-title" style="margin-bottom: 0.8rem">
+          {{ editingPost ? '编辑文章' : '新增文章' }}
+        </h2>
+        <div class="editor-grid">
+          <input
+            v-model="form.title"
+            class="input"
+            type="text"
+            placeholder="标题（必填）"
+          />
+          <input
+            v-model="form.summary"
+            class="input"
+            type="text"
+            placeholder="摘要 / 简短说明"
+          />
+          <input
+            v-model="form.tags"
+            class="input"
+            type="text"
+            placeholder="标签，以英文逗号分隔，例如：Vue,后端,随笔"
+          />
+          <div class="upload-row">
+            <input
+              ref="fileInput"
+              type="file"
+              class="file-input-hidden"
+              @change="handleFileChange"
+            />
+            <button class="btn ghost" @click="triggerFile('image')">
+              上传图片并插入正文
+            </button>
+            <button class="btn ghost" @click="triggerFile('attachment')">
+              上传附件并插入链接
+            </button>
+          </div>
+          <textarea
+            v-model="form.content"
+            class="input"
+            rows="8"
+            placeholder="正文内容，支持纯文本、HTML，以及 Markdown 语法（详情见 README）"
+          ></textarea>
+          <div class="preview-box" v-if="previewHtml">
+            <div class="preview-title">实时预览</div>
+            <div class="post-content" v-html="previewHtml"></div>
+          </div>
+          <div class="editor-actions">
+            <button class="btn primary" @click="submitPost">
+              {{ editingPost ? '保存修改' : '发布文章' }}
+            </button>
+            <button class="btn ghost" @click="closeEditor">
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, reactive } from 'vue';
+import { computed, onMounted, ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
+import MarkdownIt from 'markdown-it';
 
 const router = useRouter();
 const posts = ref([]);
@@ -106,12 +129,31 @@ const loading = ref(false);
 const page = ref(1);
 const totalPages = ref(1);
 
+const showEditor = ref(false);
 const editingPost = ref(null);
 const form = reactive({
   title: '',
   summary: '',
   content: '',
   tags: ''
+});
+
+const fileInput = ref(null);
+const uploadType = ref('image');
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  breaks: true
+});
+
+const previewHtml = computed(() => {
+  if (!form.content) return '';
+  const raw = form.content.trim();
+  if (raw.startsWith('<')) {
+    return raw;
+  }
+  return md.render(raw);
 });
 
 const fetchPosts = async () => {
@@ -134,6 +176,15 @@ const changePage = (p) => {
   fetchPosts();
 };
 
+const openCreate = () => {
+  resetForm();
+  showEditor.value = true;
+};
+
+const closeEditor = () => {
+  showEditor.value = false;
+};
+
 const resetForm = () => {
   editingPost.value = null;
   form.title = '';
@@ -148,6 +199,7 @@ const startEdit = (post) => {
   form.summary = post.summary || '';
   form.content = post.content || '';
   form.tags = post.tags || '';
+  showEditor.value = true;
 };
 
 const submitPost = async () => {
@@ -166,6 +218,7 @@ const submitPost = async () => {
     await axios.post('/api/posts', payload);
   }
   resetForm();
+  closeEditor();
   fetchPosts();
 };
 
@@ -174,6 +227,36 @@ const deletePost = async (id) => {
   if (!window.confirm('确认删除该文章吗？')) return;
   await axios.delete(`/api/posts/${id}`);
   fetchPosts();
+};
+
+const triggerFile = (type) => {
+  uploadType.value = type;
+  if (fileInput.value) {
+    fileInput.value.value = '';
+    fileInput.value.click();
+  }
+};
+
+const handleFileChange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await axios.post('/api/oss/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    if (res.data.code === 0 && res.data.data) {
+      const url = res.data.data;
+      if (uploadType.value === 'image') {
+        form.content += `\n\n![${file.name}](${url})\n\n`;
+      } else {
+        form.content += `\n\n[附件：${file.name}](${url})\n\n`;
+      }
+    }
+  } catch (err) {
+    console.error('上传失败', err);
+  }
 };
 
 const goDetail = (id) => {

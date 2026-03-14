@@ -1,46 +1,14 @@
 <template>
   <div class="page">
-    <h1 class="page-title">技能图谱</h1>
-    <section class="card" style="cursor: default">
-      <h2 class="card-title" style="margin-bottom: 0.6rem">
-        {{ editingSkill ? '编辑技能' : '新增技能' }}
-      </h2>
-      <div class="editor-grid">
-        <input
-          v-model="form.category"
-          class="input"
-          type="text"
-          placeholder="技能分类（例如：后端、前端、基础能力）"
-        />
-        <input
-          v-model="form.title"
-          class="input"
-          type="text"
-          placeholder="技能名称，例如：Spring Boot / Vue3"
-        />
-        <textarea
-          v-model="form.description"
-          class="input"
-          rows="3"
-          placeholder="简短说明（可选）"
-        ></textarea>
-        <div class="editor-actions">
-          <button class="btn primary" @click="submitSkill">
-            {{ editingSkill ? '保存修改' : '添加技能' }}
-          </button>
-          <button
-            v-if="editingSkill"
-            class="btn ghost"
-            @click="resetForm"
-          >
-            取消编辑
-          </button>
-        </div>
-      </div>
-    </section>
+    <div class="skills-header">
+      <h1 class="page-title">技能图谱</h1>
+      <button class="btn primary" @click="openCreate">
+        新增技能
+      </button>
+    </div>
 
     <div v-if="loading" class="center-text">加载中...</div>
-    <div v-else class="skills-grid">
+    <div v-else class="skills-grid wide">
       <section
         v-for="group in groupedSkills"
         :key="group.category"
@@ -71,6 +39,42 @@
         </ul>
       </section>
     </div>
+
+    <div v-if="showEditor" class="modal-backdrop">
+      <div class="modal">
+        <h2 class="card-title" style="margin-bottom: 0.8rem">
+          {{ editingSkill ? '编辑技能' : '新增技能' }}
+        </h2>
+        <div class="editor-grid">
+          <input
+            v-model="form.category"
+            class="input"
+            type="text"
+            placeholder="技能分类（例如：后端、前端、基础能力）"
+          />
+          <input
+            v-model="form.title"
+            class="input"
+            type="text"
+            placeholder="技能名称，例如：Spring Boot / Vue3"
+          />
+          <textarea
+            v-model="form.description"
+            class="input"
+            rows="3"
+            placeholder="简短说明（可选）"
+          ></textarea>
+          <div class="editor-actions">
+            <button class="btn primary" @click="submitSkill">
+              {{ editingSkill ? '保存修改' : '添加技能' }}
+            </button>
+            <button class="btn ghost" @click="closeEditor">
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -80,6 +84,7 @@ import axios from 'axios';
 
 const skills = ref([]);
 const loading = ref(false);
+const showEditor = ref(false);
 const editingSkill = ref(null);
 const form = reactive({
   category: '',
@@ -113,6 +118,11 @@ const groupedSkills = computed(() => {
   }));
 });
 
+const openCreate = () => {
+  resetForm();
+  showEditor.value = true;
+};
+
 const resetForm = () => {
   editingSkill.value = null;
   form.category = '';
@@ -120,11 +130,16 @@ const resetForm = () => {
   form.description = '';
 };
 
+const closeEditor = () => {
+  showEditor.value = false;
+};
+
 const startEdit = (item) => {
   editingSkill.value = { ...item };
   form.category = item.category || '';
   form.title = item.title || '';
   form.description = item.description || '';
+  showEditor.value = true;
 };
 
 const submitSkill = async () => {
@@ -142,6 +157,7 @@ const submitSkill = async () => {
     await axios.post('/api/skills', payload);
   }
   resetForm();
+  closeEditor();
   fetchSkills();
 };
 

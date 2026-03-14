@@ -24,3 +24,14 @@ logging:
   level:
     com.example.blog: info
 
+aliyun:
+  oss:
+    # 示例：华东 1 区域 endpoint，可根据自己的地域调整
+    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    # 从环境变量中读取，仓库里不再出现真实 AK/SK
+    access-key-id: ${ALIYUN_OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${ALIYUN_OSS_ACCESS_KEY_SECRET:}
+    bucket-name: tech-blog1
+    # 建议配置为 Bucket 的公网访问前缀，方便前端直接预览
+    public-url-prefix: https://tech-blog1.oss-cn-hangzhou.aliyuncs.com
+

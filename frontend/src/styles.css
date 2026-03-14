@@ -57,7 +57,7 @@ a {
 .main {
   flex: 1;
   padding: 2rem 1.5rem 3rem;
-  max-width: 960px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
@@ -170,10 +170,20 @@ a {
   font-size: 0.96rem;
 }
 
+.post-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
 .skills-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.2rem;
+}
+
+.skills-grid.wide .card {
+  min-height: 220px;
 }
 
 .skill-list {
@@ -190,6 +200,13 @@ a {
 .skill-desc {
   font-size: 0.85rem;
   color: #cbd5f5;
+}
+
+.skills-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
 }
 
 .input {
@@ -265,6 +282,65 @@ a {
   background: rgba(56, 189, 248, 0.2);
   border-color: #38bdf8;
   color: #e0f2fe;
+}
+
+.toolbar {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+.modal {
+  width: min(800px, 96vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: #020617;
+  border-radius: 1rem;
+  padding: 1.4rem 1.6rem 1.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.9);
+}
+
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.preview-box {
+  margin-top: 0.6rem;
+  padding: 0.8rem;
+  border-radius: 0.8rem;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.85);
+  max-height: 360px;
+  overflow: auto;
+}
+
+.preview-box img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.preview-title {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 0.4rem;
 }
 
 @media (max-width: 640px) {
