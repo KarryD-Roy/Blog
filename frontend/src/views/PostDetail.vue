@@ -9,20 +9,37 @@
         <span>发布时间：{{ post.createdAt }}</span>
       </p>
       <p class="card-summary">{{ post.summary }}</p>
-      <div class="post-content" v-html="post.content"></div>
+      <div class="post-content" v-html="renderedContent"></div>
     </article>
     <div v-else class="center-text">文章不存在或已删除。</div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
+import MarkdownIt from 'markdown-it';
 
 const route = useRoute();
 const post = ref(null);
 const loading = ref(false);
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  breaks: true
+});
+
+const renderedContent = computed(() => {
+  if (!post.value || !post.value.content) return '';
+  const raw = post.value.content;
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('<')) {
+    return raw;
+  }
+  return md.render(raw);
+});
 
 const fetchDetail = async () => {
   loading.value = true;

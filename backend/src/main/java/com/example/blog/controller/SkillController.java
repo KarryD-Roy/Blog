@@ -3,9 +3,7 @@ package com.example.blog.controller;
 import com.example.blog.entity.Skill;
 import com.example.blog.service.SkillService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -19,6 +17,26 @@ public class SkillController {
     @GetMapping
     public ApiResponse<List<Skill>> listAll() {
         return ApiResponse.ok(skillService.list());
+    }
+
+    @PostMapping
+    public ApiResponse<Skill> create(@RequestBody Skill skill) {
+        skill.setId(null);
+        skillService.save(skill);
+        return ApiResponse.ok(skill);
+    }
+
+    @PutMapping("/{id}")
+    public ApiResponse<Skill> update(@PathVariable Long id, @RequestBody Skill skill) {
+        skill.setId(id);
+        skillService.updateById(skill);
+        return ApiResponse.ok(skill);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        skillService.removeById(id);
+        return ApiResponse.ok(null);
     }
 }
 

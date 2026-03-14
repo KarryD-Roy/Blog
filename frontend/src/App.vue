@@ -5,6 +5,8 @@
       <nav class="nav">
         <RouterLink to="/">首页</RouterLink>
         <RouterLink to="/skills">技能图谱</RouterLink>
+        <RouterLink to="/search">搜索</RouterLink>
+        <RouterLink to="/posts">文章大全</RouterLink>
       </nav>
     </header>
     <main class="main">
