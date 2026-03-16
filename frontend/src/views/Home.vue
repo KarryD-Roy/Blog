@@ -83,6 +83,12 @@
             type="text"
             placeholder="标签，以英文逗号分隔，例如：Vue,后端,随笔"
           />
+          <select v-model="form.categoryId" class="input">
+            <option :value="null">选择分类（可选）</option>
+            <option v-for="c in categories" :key="c.id" :value="c.id">
+              {{ c.name }}
+            </option>
+          </select>
           <div class="upload-row">
             <input
               ref="fileInput"
@@ -129,9 +135,10 @@ import MarkdownIt from 'markdown-it';
 
 const router = useRouter();
 const posts = ref([]);
+const categories = ref([]);
 const loading = ref(false);
 const page = ref(1);
-const totalPages = ref(1);
+const totalPages = ref(0);
 
 const showEditor = ref(false);
 const editingPost = ref(null);
@@ -139,7 +146,8 @@ const form = reactive({
   title: '',
   summary: '',
   content: '',
-  tags: ''
+  tags: '',
+  categoryId: null
 });
 
 const fileInput = ref(null);
@@ -164,17 +172,25 @@ const fetchPosts = async () => {
   loading.value = true;
   try {
     const res = await axios.get('/api/posts', {
-      // 首页展示 12 篇文章，每页 4 篇
       params: { page: page.value, size: 4 }
     });
     if (res.data.code === 0) {
-      posts.value = res.data.data.records || [];
-      // 总数限制在 12 篇，即最多 3 页
-      const total = Math.min(res.data.data.total || 0, 12);
-      totalPages.value = Math.min(res.data.data.pages || 1, Math.ceil(total / 4));
+      posts.value = res.data.data.records;
+      totalPages.value = res.data.data.pages;
     }
   } finally {
     loading.value = false;
+  }
+};
+
+const fetchCategories = async () => {
+  try {
+    const res = await axios.get('/api/categories');
+    if (res.data.code === 0) {
+      categories.value = res.data.data;
+    }
+  } catch (err) {
+    console.error('获取分类失败', err);
   }
 };
 
@@ -198,6 +214,7 @@ const resetForm = () => {
   form.summary = '';
   form.content = '';
   form.tags = '';
+  form.categoryId = null;
 };
 
 const startEdit = (post) => {
@@ -206,6 +223,7 @@ const startEdit = (post) => {
   form.summary = post.summary || '';
   form.content = post.content || '';
   form.tags = post.tags || '';
+  form.categoryId = post.categoryId || null;
   showEditor.value = true;
 };
 
@@ -217,7 +235,8 @@ const submitPost = async () => {
     title: form.title,
     summary: form.summary,
     content: form.content,
-    tags: form.tags
+    tags: form.tags,
+    categoryId: form.categoryId
   };
   if (editingPost.value && editingPost.value.id) {
     await axios.put(`/api/posts/${editingPost.value.id}`, payload);
@@ -270,6 +289,11 @@ const goDetail = (id) => {
   router.push({ name: 'post-detail', params: { id } });
 };
 
-onMounted(fetchPosts);
+onMounted(() => {
+  fetchPosts();
+  fetchCategories();
+});
 </script>
+
+
 

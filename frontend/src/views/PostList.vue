@@ -58,7 +58,7 @@
         <p class="card-meta">
           <span>浏览：{{ post.viewCount }}</span>
           <span>发布时间：{{ post.createdAt }}</span>
-          <span v-if="post.categoryId">分类ID：{{ post.categoryId }}</span>
+          <span v-if="post.categoryId" class="category-info">分类ID：{{ post.categoryId }}</span>
         </p>
         <p class="card-summary">{{ post.summary }}</p>
         <p class="card-tags" v-if="post.tags">
