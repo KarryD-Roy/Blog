@@ -17,5 +17,10 @@ public class Skill {
     private String title;
 
     private String description;
+
+    /**
+     * 是否置顶，true 表示置顶
+     */
+    private Boolean pinned;
 }
 

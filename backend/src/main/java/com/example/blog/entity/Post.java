@@ -26,6 +26,11 @@ public class Post {
 
     private Integer viewCount;
 
+    /**
+     * 是否置顶，true 表示置顶
+     */
+    private Boolean pinned;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

@@ -48,10 +48,14 @@
         </div>
       </article>
 
-      <div class="pagination">
-        <button :disabled="page === 1" @click="changePage(page - 1)">上一页</button>
+      <div v-if="totalPages > 1" class="pagination">
+        <button :disabled="page === 1" @click="changePage(page - 1)">
+          上一页
+        </button>
         <span>第 {{ page }} / {{ totalPages }} 页</span>
-        <button :disabled="page === totalPages" @click="changePage(page + 1)">下一页</button>
+        <button :disabled="page === totalPages" @click="changePage(page + 1)">
+          下一页
+        </button>
       </div>
     </div>
 
@@ -160,11 +164,14 @@ const fetchPosts = async () => {
   loading.value = true;
   try {
     const res = await axios.get('/api/posts', {
-      params: { page: page.value, size: 5 }
+      // 首页展示 12 篇文章，每页 4 篇
+      params: { page: page.value, size: 4 }
     });
     if (res.data.code === 0) {
       posts.value = res.data.data.records || [];
-      totalPages.value = res.data.data.pages || 1;
+      // 总数限制在 12 篇，即最多 3 页
+      const total = Math.min(res.data.data.total || 0, 12);
+      totalPages.value = Math.min(res.data.data.pages || 1, Math.ceil(total / 4));
     }
   } finally {
     loading.value = false;

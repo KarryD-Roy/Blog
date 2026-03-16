@@ -62,9 +62,25 @@ public class PostController {
             String trimmed = tag.trim();
             wrapper.like(Post::getTags, trimmed);
         }
-        wrapper.orderByDesc(Post::getCreatedAt);
+        // 文章大全 / 搜索：先按置顶降序，再按发布时间倒序
+        wrapper.orderByDesc(Post::getPinned).orderByDesc(Post::getCreatedAt);
         IPage<Post> result = postService.page(Page.of(page, size), wrapper);
         return ApiResponse.ok(result);
+    }
+
+    /**
+     * 单独更新文章置顶状态
+     */
+    @PutMapping("/{id}/pin")
+    public ApiResponse<Post> updatePin(@PathVariable Long id, @RequestParam boolean pinned) {
+        Post post = postService.getById(id);
+        if (post == null) {
+            return ApiResponse.error("文章不存在");
+        }
+        post.setPinned(pinned);
+        post.setUpdatedAt(LocalDateTime.now());
+        postService.updateById(post);
+        return ApiResponse.ok(post);
     }
 
     /**

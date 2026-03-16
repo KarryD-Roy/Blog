@@ -8,36 +8,62 @@
     </div>
 
     <div v-if="loading" class="center-text">加载中...</div>
-    <div v-else class="skills-grid wide">
-      <section
-        v-for="group in groupedSkills"
-        :key="group.category"
-        class="card"
-      >
-        <h2 class="card-title">{{ group.category }}</h2>
-        <ul class="skill-list">
-          <li v-for="item in group.items" :key="item.id">
-            <h3 class="skill-title">{{ item.title }}</h3>
-            <p class="skill-desc">{{ item.description }}</p>
-            <div style="margin-top: 0.3rem; display: flex; gap: 0.4rem">
-              <button
-                class="btn ghost"
-                style="font-size: 0.75rem"
-                @click="startEdit(item)"
-              >
-                编辑
-              </button>
-              <button
-                class="btn ghost"
-                style="font-size: 0.75rem; color: #fca5a5; border-color: rgba(248, 113, 113, 0.6)"
-                @click="deleteSkill(item.id)"
-              >
-                删除
-              </button>
-            </div>
-          </li>
-        </ul>
-      </section>
+    <div v-else>
+      <div class="skills-grid wide">
+        <section
+          v-for="group in groupedSkills"
+          :key="group.category"
+          class="card"
+        >
+          <h2 class="card-title">{{ group.category }}</h2>
+          <ul class="skill-list">
+            <li v-for="item in group.items" :key="item.id">
+              <h3 class="skill-title">
+                <span
+                  v-if="item.pinned"
+                  class="tag"
+                  style="margin-right: 0.4rem"
+                >置顶</span>
+                {{ item.title }}
+              </h3>
+              <p class="skill-desc">{{ item.description }}</p>
+              <div style="margin-top: 0.3rem; display: flex; gap: 0.4rem">
+                <button
+                  class="btn ghost"
+                  style="font-size: 0.75rem"
+                  @click="startEdit(item)"
+                >
+                  编辑
+                </button>
+                <button
+                  class="btn ghost"
+                  style="font-size: 0.75rem"
+                  @click="togglePin(item)"
+                >
+                  {{ item.pinned ? '取消置顶' : '置顶' }}
+                </button>
+                <button
+                  class="btn ghost"
+                  style="font-size: 0.75rem; color: #fca5a5; border-color: rgba(248, 113, 113, 0.6)"
+                  @click="deleteSkill(item.id)"
+                >
+                  删除
+                </button>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </div>
+
+      <div v-if="totalPages > 1" class="pagination">
+        <button :disabled="page === 1" @click="changePage(page - 1)">
+          上一页
+        </button>
+        <span>第 {{ page }} / {{ totalPages }} 页</span>
+        <button :disabled="page === totalPages" @click="changePage(page + 1)">
+          下一页
+        </button>
+      </div>
     </div>
 
     <div v-if="showEditor" class="modal-backdrop">
@@ -84,6 +110,8 @@ import axios from 'axios';
 
 const skills = ref([]);
 const loading = ref(false);
+const page = ref(1);
+const totalPages = ref(1);
 const showEditor = ref(false);
 const editingSkill = ref(null);
 const form = reactive({
@@ -95,9 +123,15 @@ const form = reactive({
 const fetchSkills = async () => {
   loading.value = true;
   try {
-    const res = await axios.get('/api/skills');
+    const res = await axios.get('/api/skills/page', {
+      params: {
+        page: page.value,
+        size: 6
+      }
+    });
     if (res.data.code === 0) {
-      skills.value = res.data.data || [];
+      skills.value = res.data.data.records || [];
+      totalPages.value = res.data.data.pages || 1;
     }
   } finally {
     loading.value = false;
@@ -164,6 +198,19 @@ const submitSkill = async () => {
 const deleteSkill = async (id) => {
   if (!window.confirm('确认删除该技能吗？')) return;
   await axios.delete(`/api/skills/${id}`);
+  fetchSkills();
+};
+
+const togglePin = async (item) => {
+  const target = !item.pinned;
+  await axios.put(`/api/skills/${item.id}/pin`, null, {
+    params: { pinned: target }
+  });
+  fetchSkills();
+};
+
+const changePage = (p) => {
+  page.value = p;
   fetchSkills();
 };
 

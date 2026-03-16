@@ -112,7 +112,7 @@ const fetchPosts = async () => {
     const res = await axios.get('/api/posts/query', {
       params: {
         page: page.value,
-        size: 5,
+        size: 6,
         keyword: keyword.value || undefined,
         tag: selectedTag.value || undefined
       }

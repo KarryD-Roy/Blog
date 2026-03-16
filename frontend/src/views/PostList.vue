@@ -51,7 +51,10 @@
         class="card"
         @click="goDetail(post.id)"
       >
-        <h2 class="card-title">{{ post.title }}</h2>
+        <h2 class="card-title">
+          <span v-if="post.pinned" class="tag" style="margin-right: 0.4rem">置顶</span>
+          {{ post.title }}
+        </h2>
         <p class="card-meta">
           <span>浏览：{{ post.viewCount }}</span>
           <span>发布时间：{{ post.createdAt }}</span>
@@ -67,6 +70,15 @@
             # {{ tg }}
           </span>
         </p>
+        <div class="card-meta" style="margin-top: 0.4rem">
+          <button
+            class="btn ghost"
+            style="font-size: 0.75rem"
+            @click.stop="togglePin(post)"
+          >
+            {{ post.pinned ? '取消置顶' : '置顶' }}
+          </button>
+        </div>
       </article>
 
       <div v-if="totalPages > 1" class="pagination">
@@ -132,6 +144,14 @@ const fetchPosts = async () => {
 
 const handleFilter = () => {
   page.value = 1;
+  fetchPosts();
+};
+
+const togglePin = async (post) => {
+  const target = !post.pinned;
+  await axios.put(`/api/posts/${post.id}/pin`, null, {
+    params: { pinned: target }
+  });
   fetchPosts();
 };
 
