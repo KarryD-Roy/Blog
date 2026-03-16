@@ -1,3 +1,10 @@
+INSERT INTO hot_news (title, url, image_url, source, publish_date) VALUES
+('OpenAI 发布新一代模型 GPT-X', 'https://openai.com/blog', 'https://picsum.photos/seed/gptx/800/420', 'OpenAI', NOW()),
+('Rust 1.80 正式发布，改进宏与性能', 'https://blog.rust-lang.org', 'https://picsum.photos/seed/rust/800/420', 'Rust', NOW()),
+('Kubernetes 1.32 推出新特性', 'https://kubernetes.io/blog/', 'https://picsum.photos/seed/k8s/800/420', 'CNCF', NOW()),
+('Vite 6.0 Roadmap 公布', 'https://vitejs.dev/blog/', 'https://picsum.photos/seed/vite/800/420', 'Vite', NOW()),
+('Spring Boot 3.3.5 发布', 'https://spring.io/blog', 'https://picsum.photos/seed/spring/800/420', 'Spring', NOW());
+
 INSERT INTO skills (category, title, description, pinned) VALUES
 ('编程语言与基础能力', 'Java 及面向对象基础', '熟练掌握 Java 语言，深入理解面向对象编程、异常处理、集合框架、并发编程；熟悉常见数据结构及算法；了解常用设计模式，如工厂、责任链、策略等。', 1),
 ('主流开发框架', 'Spring 生态与微服务', '熟练使用 Spring Boot，熟悉 Spring Cloud 及相关组件如 Nacos、OpenFeign、Gateway 等，实现服务注册、调用与网关路由；熟练使用 MyBatis/MyBatis-Plus 实现 ORM 映射，熟悉 Lambda 查询、分页插件、逻辑删除等高效特性；理解 AOP 面向切面编程思想，能基于注解实现日志记录、权限校验、性能埋点等横切关注点。', 1),
@@ -43,4 +50,3 @@ INSERT INTO posts (title, summary, content, category_id, tags, view_count, pinne
 ('K8s 入门：Pod 与 Deployment', '在 Kubernetes 中部署无状态应用。', 'Pod、Deployment、Service 基本概念与 YAML 配置，为博客容器化部署做准备。', 4, 'Kubernetes,容器,运维', 3, 0, DATE_SUB(NOW(), INTERVAL 18 DAY), DATE_SUB(NOW(), INTERVAL 18 DAY)),
 ('设计模式：工厂与策略模式', '常用设计模式在业务代码中的运用。', '简单工厂、工厂方法、抽象工厂与策略模式，减少 if-else 并提高可扩展性。', 1, '设计模式,Java,架构', 7, 0, DATE_SUB(NOW(), INTERVAL 19 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY)),
 ('Spring AI 接入 OpenAI 与国产大模型', '统一接口调用多模型。', 'Spring AI 的 ChatClient、Embedding 与国产模型适配，实现可切换的 LLM 调用层。', 2, 'Spring AI,大模型,AI', 11, 0, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 20 DAY));
-

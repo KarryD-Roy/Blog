@@ -1,62 +1,105 @@
 <template>
   <div class="page">
-    <h1 class="page-title">最新文章</h1>
 
-    <div class="toolbar">
-      <button class="btn primary" @click="openCreate">
-        新增文章
-      </button>
-    </div>
-    <div v-if="loading" class="center-text">加载中...</div>
-    <div v-else>
-      <article
-        v-for="post in posts"
-        :key="post.id"
-        class="card"
-        @click="goDetail(post.id)"
-      >
-        <h2 class="card-title">{{ post.title }}</h2>
-        <p class="card-meta">
-          <span>浏览：{{ post.viewCount }}</span>
-          <span>发布时间：{{ post.createdAt }}</span>
-        </p>
-        <p class="card-summary">{{ post.summary }}</p>
-        <p class="card-tags" v-if="post.tags">
-          <span
-            v-for="tag in post.tags.split(',')"
-            :key="tag"
-            class="tag"
-          >
-            # {{ tag }}
-          </span>
-        </p>
-        <div class="card-meta" style="margin-top: 0.6rem">
-          <button
-            class="btn ghost"
-            style="font-size: 0.8rem"
-            @click.stop="startEdit(post)"
-          >
-            编辑
-          </button>
-          <button
-            class="btn ghost"
-            style="font-size: 0.8rem; color: #fca5a5; border-color: rgba(248, 113, 113, 0.6)"
-            @click.stop="deletePost(post.id)"
-          >
-            删除
-          </button>
+    <div class="home-layout">
+      <aside class="hot-news-card">
+        <div class="hot-news-header">
+          <div>
+            <div class="hot-news-title">技术热点资讯</div>
+            <div class="hot-news-subtitle">每日更新，点击跳转查看详情</div>
+          </div>
+          <div class="hot-news-date">{{ today }}</div>
         </div>
-      </article>
 
-      <div v-if="totalPages > 1" class="pagination">
-        <button :disabled="page === 1" @click="changePage(page - 1)">
-          上一页
-        </button>
-        <span>第 {{ page }} / {{ totalPages }} 页</span>
-        <button :disabled="page === totalPages" @click="changePage(page + 1)">
-          下一页
-        </button>
+        <div class="hot-news-carousel" v-if="hotNews.length">
+          <swiper
+            :modules="modules"
+            :slides-per-view="1"
+            :space-between="20"
+            :pagination="{ clickable: true }"
+            :autoplay="{ delay: 4000, disableOnInteraction: false }"
+            class="my-swiper"
+          >
+            <swiper-slide v-for="item in hotNews" :key="item.id">
+              <div class="hot-news-slide" @click="openLink(item.url)">
+                <div class="hot-news-image" :style="bgImage(item.imageUrl)"></div>
+                <div class="hot-news-info">
+                  <div class="hot-news-item-title">{{ item.title }}</div>
+                  <div class="hot-news-meta">
+                    <span>{{ item.source || '来源' }}</span>
+                    <span>{{ formatDate(item.publishDate) }}</span>
+                  </div>
+                </div>
+              </div>
+            </swiper-slide>
+          </swiper>
+        </div>
+        <div v-else class="center-text" style="padding: 1rem;">暂无热点资讯</div>
+      </aside>
+
+      <div class="main-column">
+        <div class="main-header">
+           <h1 class="page-title" style="margin-bottom: 0;">最新文章</h1>
+           <div class="toolbar" style="margin-bottom: 0;">
+            <button class="btn primary" @click="openCreate">
+              新增文章
+            </button>
+          </div>
+        </div>
+        <div v-if="loading" class="center-text">加载中...</div>
+        <div v-else>
+          <article
+            v-for="post in posts"
+            :key="post.id"
+            class="card"
+            @click="goDetail(post.id)"
+          >
+            <h2 class="card-title">{{ post.title }}</h2>
+            <p class="card-meta">
+              <span>浏览：{{ post.viewCount }}</span>
+              <span>发布时间：{{ post.createdAt }}</span>
+            </p>
+            <p class="card-summary">{{ post.summary }}</p>
+            <p class="card-tags" v-if="post.tags">
+              <span
+                v-for="tag in post.tags.split(',')"
+                :key="tag"
+                class="tag"
+              >
+                # {{ tag }}
+              </span>
+            </p>
+            <div class="card-meta" style="margin-top: 0.6rem">
+              <button
+                class="btn ghost"
+                style="font-size: 0.8rem"
+                @click.stop="startEdit(post)"
+              >
+                编辑
+              </button>
+              <button
+                class="btn ghost"
+                style="font-size: 0.8rem; color: #fca5a5; border-color: rgba(248, 113, 113, 0.6)"
+                @click.stop="deletePost(post.id)"
+              >
+                删除
+              </button>
+            </div>
+          </article>
+
+          <div v-if="totalPages > 1" class="pagination">
+            <button :disabled="page === 1" @click="changePage(page - 1)">
+              上一页
+            </button>
+            <span>第 {{ page }} / {{ totalPages }} 页</span>
+            <button :disabled="page === totalPages" @click="changePage(page + 1)">
+              下一页
+            </button>
+          </div>
+        </div>
       </div>
+
+      <div class="right-column"></div>
     </div>
 
     <div v-if="showEditor" class="modal-backdrop">
@@ -132,6 +175,12 @@ import { computed, onMounted, ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import MarkdownIt from 'markdown-it';
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import { Pagination, Autoplay } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
+
+const modules = [Pagination, Autoplay];
 
 const router = useRouter();
 const posts = ref([]);
@@ -289,11 +338,34 @@ const goDetail = (id) => {
   router.push({ name: 'post-detail', params: { id } });
 };
 
+const hotNews = ref([]);
+const today = computed(() => new Date().toLocaleDateString());
+
+const bgImage = (url) => ({ backgroundImage: `url(${url || 'https://picsum.photos/seed/news/800/420'})` });
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  return dateStr.toString().replace('T', ' ').slice(0, 16);
+};
+
+const openLink = (url) => {
+  if (url) window.open(url, '_blank');
+};
+
+const fetchHotNews = async () => {
+  try {
+    const res = await axios.get('/api/hot-news');
+    if (res.data.code === 0) {
+      hotNews.value = res.data.data || [];
+    }
+  } catch (err) {
+    console.error('获取热点资讯失败', err);
+  }
+};
+
 onMounted(() => {
   fetchPosts();
   fetchCategories();
+  fetchHotNews();
 });
 </script>
-
-
-

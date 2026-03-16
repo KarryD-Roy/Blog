@@ -22,7 +22,7 @@ mybatis-plus:
 
 logging:
   level:
-    com.example.blog: info
+    com.example.blog: debug
 
 aliyun:
   oss:
