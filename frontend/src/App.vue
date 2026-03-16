@@ -10,7 +10,11 @@
       </nav>
     </header>
     <main class="main">
-      <RouterView />
+      <router-view v-slot="{ Component }">
+        <keep-alive include="Home,PostList">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </main>
     <footer class="footer">
       © {{ new Date().getFullYear() }} Karry · Personal Tech Blog

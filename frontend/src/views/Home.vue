@@ -46,8 +46,9 @@
             </button>
           </div>
         </div>
-        <div v-if="loading" class="center-text">加载中...</div>
+        <div v-if="loading && posts.length === 0" class="center-text">加载中...</div>
         <div v-else>
+          <div v-if="loading" class="center-text" style="font-size: 0.8rem; margin-bottom: 0.5rem">Updating...</div>
           <article
             v-for="post in posts"
             :key="post.id"
@@ -171,8 +172,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, reactive } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref, reactive, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import MarkdownIt from 'markdown-it';
 import { Swiper, SwiperSlide } from 'swiper/vue';
@@ -182,11 +183,16 @@ import 'swiper/css/pagination';
 
 const modules = [Pagination, Autoplay];
 
+defineOptions({
+  name: 'Home'
+});
+
 const router = useRouter();
+const route = useRoute();
 const posts = ref([]);
 const categories = ref([]);
 const loading = ref(false);
-const page = ref(1);
+const page = ref(route.query.page ? parseInt(route.query.page) : 1);
 const totalPages = ref(0);
 
 const showEditor = ref(false);
@@ -245,8 +251,17 @@ const fetchCategories = async () => {
 
 const changePage = (p) => {
   page.value = p;
-  fetchPosts();
+  router.push({ query: { ...route.query, page: p } });
 };
+
+watch(
+  () => route.query.page,
+  (newPage) => {
+    if (route.name !== 'home') return;
+    page.value = newPage ? parseInt(newPage) : 1;
+    fetchPosts();
+  }
+);
 
 const openCreate = () => {
   resetForm();

@@ -38,9 +38,10 @@
       </div>
     </section>
 
-    <div v-if="loading" class="center-text">加载中...</div>
+    <div v-if="loading && posts.length === 0" class="center-text">加载中...</div>
 
     <div v-else>
+      <div v-if="loading" class="center-text" style="font-size: 0.8rem; margin-bottom: 0.5rem">Updating...</div>
       <div v-if="posts.length === 0" class="center-text">
         暂无文章，请调整筛选条件。
       </div>
@@ -95,19 +96,24 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onMounted, ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
-const router = useRouter();
+defineOptions({
+  name: 'PostList'
+});
 
-const keyword = ref('');
-const categoryId = ref('');
-const tag = ref('');
+const router = useRouter();
+const route = useRoute();
+
+const keyword = ref(route.query.keyword || '');
+const categoryId = ref(route.query.categoryId ? Number(route.query.categoryId) : '');
+const tag = ref(route.query.tag || '');
 const categories = ref([]);
 const posts = ref([]);
 const loading = ref(false);
-const page = ref(1);
+const page = ref(route.query.page ? parseInt(route.query.page) : 1);
 const totalPages = ref(1);
 
 const fetchCategories = async () => {
@@ -142,9 +148,20 @@ const fetchPosts = async () => {
   }
 };
 
+const updateQuery = () => {
+  router.push({
+    query: {
+      page: page.value,
+      keyword: keyword.value || undefined,
+      categoryId: categoryId.value || undefined,
+      tag: tag.value || undefined
+    }
+  });
+};
+
 const handleFilter = () => {
   page.value = 1;
-  fetchPosts();
+  updateQuery();
 };
 
 const togglePin = async (post) => {
@@ -160,21 +177,32 @@ const resetFilter = () => {
   categoryId.value = '';
   tag.value = '';
   page.value = 1;
-  fetchPosts();
+  updateQuery();
 };
 
 const changePage = (p) => {
   page.value = p;
-  fetchPosts();
+  updateQuery();
 };
 
 const goDetail = (id) => {
   router.push({ name: 'post-detail', params: { id } });
 };
 
+watch(
+  () => route.query,
+  (newQuery) => {
+    if (route.name !== 'post-list') return;
+    page.value = newQuery.page ? parseInt(newQuery.page) : 1;
+    keyword.value = newQuery.keyword || '';
+    categoryId.value = newQuery.categoryId ? Number(newQuery.categoryId) : '';
+    tag.value = newQuery.tag || '';
+    fetchPosts();
+  }
+);
+
 onMounted(() => {
   fetchCategories();
   fetchPosts();
 });
 </script>
-
