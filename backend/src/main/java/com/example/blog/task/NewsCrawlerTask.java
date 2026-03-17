@@ -9,6 +9,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +29,7 @@ public class NewsCrawlerTask {
      * 每天早上 8 点抓取一次
      */
     @Scheduled(cron = "0 0 8 * * ?")
+    @EventListener(ApplicationReadyEvent.class) // 应用启动时立即抓取一次
     public void crawlDailyNews() {
         log.info("开始抓取每日技术热点...");
         List<HotNews> newsList = new ArrayList<>();
@@ -40,23 +43,31 @@ public class NewsCrawlerTask {
                     .header("Referer", "https://www.oschina.net/")
                     .get();
 
-            // OSChina 新闻列表通常在 .news-list .item 中
-            Elements items = doc.select(".news-list .item");
+            // OSChina 新闻列表通常在 .news-list-container .item 中
+            Elements items = doc.select(".news-list-container .item");
             int count = 0;
             for (Element item : items) {
                 if (count >= 5) break;
 
-                // 提取标题链接，常见结构为 .content .header a
-                Element titleEl = item.select(".content .header a").first();
-                // 备用选择器
-                if (titleEl == null) {
-                    titleEl = item.select(".title").first();
+                // 提取标题和链接
+                String title = "";
+                String url = item.attr("data-url");
+
+                Element titleEl = item.select(".title").first();
+                if (titleEl != null) {
+                    title = titleEl.text();
+                } else {
+                    // 备用选择器
+                    Element headerLink = item.select(".content .header a").first();
+                    if (headerLink != null) {
+                        title = headerLink.text();
+                        if (url == null || url.isEmpty()) {
+                            url = headerLink.attr("href");
+                        }
+                    }
                 }
 
-                if (titleEl != null) {
-                    String title = titleEl.text();
-                    String url = titleEl.attr("href");
-
+                if (title != null && !title.isEmpty()) {
                     // 处理相对链接
                     if (url != null && !url.startsWith("http")) {
                         url = "https://www.oschina.net" + url;
@@ -67,9 +78,9 @@ public class NewsCrawlerTask {
                     news.setUrl(url);
                     news.setSource("OSChina");
                     news.setPublishDate(LocalDateTime.now());
-                    // 随机图 (使用国内可访问的随机风景图 API，例如韩小韩 API)
-                    // 添加随机参数以区分列表中的不同图片
-                    news.setImageUrl("https://api.vvhan.com/api/wallpaper/views?type=302&t=" + (System.currentTimeMillis() + count));
+                    // 替换为更稳定的 Lorem Picsum 或国外更快的静态图服务，确保在不同网络下更有保障
+                    // 使用 Picsum 的种子功能来为每条新闻获取相对客观的随机图
+                    news.setImageUrl("https://picsum.photos/seed/" + (title.hashCode()) + "/800/450");
 
                     newsList.add(news);
                     count++;
@@ -85,6 +96,9 @@ public class NewsCrawlerTask {
             generateMockNews(newsList);
         }
 
+        // 清理旧数据，只保留最新的，防止数据无限增长
+        hotNewsService.remove(new LambdaQueryWrapper<HotNews>());
+
         // 保存数据库
         for (HotNews news : newsList) {
             hotNewsService.save(news);
@@ -95,14 +109,13 @@ public class NewsCrawlerTask {
 
     private void generateMockNews(List<HotNews> list) {
         String dateStr = LocalDateTime.now().toLocalDate().toString();
-        long ts = System.currentTimeMillis();
 
         HotNews n1 = new HotNews();
         n1.setTitle("技术日报 [" + dateStr + "]: Spring Boot 3.4 发布预览");
         n1.setUrl("https://spring.io/blog");
         n1.setSource("Spring Blog");
         n1.setPublishDate(LocalDateTime.now());
-        n1.setImageUrl("https://api.vvhan.com/api/wallpaper/views?type=302&t=" + ts);
+        n1.setImageUrl("https://picsum.photos/seed/spring/800/450");
         list.add(n1);
 
         HotNews n2 = new HotNews();
@@ -110,7 +123,7 @@ public class NewsCrawlerTask {
         n2.setUrl("https://openai.com/blog");
         n2.setSource("AI News");
         n2.setPublishDate(LocalDateTime.now());
-        n2.setImageUrl("https://api.vvhan.com/api/wallpaper/views?type=302&t=" + (ts + 1));
+        n2.setImageUrl("https://picsum.photos/seed/ai/800/450");
         list.add(n2);
 
         HotNews n3 = new HotNews();
@@ -118,7 +131,7 @@ public class NewsCrawlerTask {
         n3.setUrl("https://blog.vuejs.org/");
         n3.setSource("Vue Blog");
         n3.setPublishDate(LocalDateTime.now());
-        n3.setImageUrl("https://api.vvhan.com/api/wallpaper/views?type=302&t=" + (ts + 2));
+        n3.setImageUrl("https://picsum.photos/seed/vue/800/450");
         list.add(n3);
     }
 }

@@ -100,7 +100,25 @@
         </div>
       </div>
 
-      <div class="right-column"></div>
+      <div class="right-column">
+        <div class="quick-nav-card">
+          <div class="hot-news-title" style="margin-bottom: 1rem;">快捷导航</div>
+          <div class="nav-list">
+            <div
+              v-for="nav in quickNavs"
+              :key="nav.id"
+              class="nav-item"
+              @click="openLink(nav.url)"
+            >
+              <img :src="nav.icon" class="nav-icon" alt="icon" />
+              <div class="nav-info">
+                <div class="nav-title">{{ nav.title }}</div>
+                <div class="nav-desc">{{ nav.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div v-if="showEditor" class="modal-backdrop">
@@ -352,6 +370,37 @@ const handleFileChange = async (e) => {
 const goDetail = (id) => {
   router.push({ name: 'post-detail', params: { id } });
 };
+
+const quickNavs = ref([
+  {
+    id: 1,
+    title: 'GitHub',
+    desc: '全球最大的代码托管平台',
+    url: 'https://github.com',
+    icon: 'https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png'
+  },
+  {
+    id: 2,
+    title: 'Bilibili',
+    desc: '国内知名的视频弹幕网站',
+    url: 'https://www.bilibili.com',
+    icon: 'https://www.bilibili.com/favicon.ico'
+  },
+  {
+    id: 3,
+    title: 'CSDN',
+    desc: '专业开发者社区',
+    url: 'https://www.csdn.net',
+    icon: 'https://g.csdnimg.cn/static/logo/favicon32.ico'
+  },
+  {
+    id: 4,
+    title: 'Stack Overflow',
+    desc: '全球最大的程序员问答社区',
+    url: 'https://stackoverflow.com',
+    icon: 'https://cdn.sstatic.net/Sites/stackoverflow/Img/apple-touch-icon.png'
+  }
+]);
 
 const hotNews = ref([]);
 const today = computed(() => new Date().toLocaleDateString());
