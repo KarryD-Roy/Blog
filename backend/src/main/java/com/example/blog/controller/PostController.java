@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.blog.entity.Post;
 import com.example.blog.service.PostService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +24,7 @@ public class PostController {
 
     private final PostService postService;
 
+    @Cacheable(cacheNames = "latestPosts", key = "#page + ':' + #size")
     @GetMapping
     public ApiResponse<IPage<Post>> page(
             @RequestParam(defaultValue = "1") long page,
@@ -71,6 +74,7 @@ public class PostController {
     /**
      * 单独更新文章置顶状态
      */
+    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
     @PutMapping("/{id}/pin")
     public ApiResponse<Post> updatePin(@PathVariable Long id, @RequestParam boolean pinned) {
         Post post = postService.getById(id);
@@ -110,6 +114,7 @@ public class PostController {
         return ApiResponse.ok(post);
     }
 
+    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
     @PostMapping
     public ApiResponse<Post> create(@RequestBody Post post) {
         post.setId(null);
@@ -121,6 +126,7 @@ public class PostController {
         return ApiResponse.ok(post);
     }
 
+    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
     @PutMapping("/{id}")
     public ApiResponse<Post> update(@PathVariable Long id, @RequestBody Post post) {
         post.setId(id);
@@ -129,6 +135,7 @@ public class PostController {
         return ApiResponse.ok(post);
     }
 
+    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         postService.removeById(id);

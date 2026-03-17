@@ -7,7 +7,12 @@
 
 ### 快速开始
 
-1. 安装并启动本地 MySQL 与 Redis。
+1. 安装并启动本地 MySQL 与 Redis（Redis 默认配置：`localhost:6379`，可按需修改 `backend/src/main/resources/application.yml`）。
+   - 如果本地有 Docker，可快速启动：
+
+     ```bash
+     docker run -d --name blog-redis -p 6379:6379 redis:7.2
+     ```
 2. 在 `backend/src/main/resources/application.yml` 中配置自己的数据库连接信息。
 3. 进入 `backend` 目录，执行 `mvn spring-boot:run` 启动后端。
 4. 进入 `frontend` 目录，执行：
@@ -20,6 +25,16 @@
    ```
 
 后端会在启动时自动创建表结构，并通过 `schema.sql` / `data.sql` 向数据库中写入包含「技能」在内的示例初始数据。
+
+---
+
+### 缓存与 Redis 使用
+
+- 已接入 Spring Cache + Redis：
+  - 「热点资讯」接口 `GET /api/hot-news`：按日期或最新结果缓存，定时爬虫及启动爬虫后会自动清理缓存。
+  - 「最新文章」接口 `GET /api/posts`：分页结果缓存，文章新增/编辑/删除/置顶会清空该缓存。
+  - 「访问过的技能」：使用 Redis List 记录最近 20 条访问（`POST /api/skills/{id}/visit` 记录，`GET /api/skills/visited` 读取），并自动设置 7 天过期。
+- 缓存键前缀：`blog::`，默认 TTL 30 分钟，可在 `backend/src/main/java/com/example/blog/config/CacheConfig.java` 调整。
 
 ---
 

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.blog.entity.HotNews;
 import com.example.blog.service.HotNewsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +26,7 @@ public class HotNewsController {
     /**
      * 获取热点资讯，支持按日期过滤；未传日期则默认返回最新的 10 条。
      */
+    @Cacheable(cacheNames = "hotNews", key = "#date != null ? #date.toString() : 'latest'")
     @GetMapping
     public ApiResponse<List<HotNews>> list(
             @RequestParam(required = false)

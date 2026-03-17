@@ -38,6 +38,27 @@ public class SkillController {
         return ApiResponse.ok(result);
     }
 
+    /**
+     * 最近访问过的技能（按访问时间倒序，最多 20 条）
+     */
+    @GetMapping("/visited")
+    public ApiResponse<List<Skill>> visited() {
+        return ApiResponse.ok(skillService.listVisitedSkills());
+    }
+
+    /**
+     * 记录技能访问行为。
+     */
+    @PostMapping("/{id}/visit")
+    public ApiResponse<Void> visit(@PathVariable Long id) {
+        Skill skill = skillService.getById(id);
+        if (skill == null) {
+            return ApiResponse.error("技能不存在");
+        }
+        skillService.recordVisitedSkill(id);
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping
     public ApiResponse<Skill> create(@RequestBody Skill skill) {
         skill.setId(null);
@@ -72,4 +93,3 @@ public class SkillController {
         return ApiResponse.ok(null);
     }
 }
-

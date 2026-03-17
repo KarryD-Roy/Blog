@@ -10,10 +10,13 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,31 +28,49 @@ public class NewsCrawlerTask {
 
     private final HotNewsService hotNewsService;
 
+    private static final int MAX_FETCH = 5;
+    private static final int MAX_RETRY = 3;
+    private static final int TIMEOUT_MS = 15000;
+    private static final int CIRCUIT_FAIL_THRESHOLD = 3;
+    private static final Duration CIRCUIT_COOLDOWN = Duration.ofMinutes(5);
+
+    private int consecutiveFailures = 0;
+    private LocalDateTime lastFailureTime = null;
+
+    @Async
+    @EventListener(ApplicationReadyEvent.class)
+    public void crawlOnStartup() {
+        crawlDailyNews();
+    }
+
     /**
      * 每天早上 8 点抓取一次
      */
+    @CacheEvict(cacheNames = "hotNews", allEntries = true)
     @Scheduled(cron = "0 0 8 * * ?")
-    @EventListener(ApplicationReadyEvent.class) // 应用启动时立即抓取一次
     public void crawlDailyNews() {
+        // 短期熔断保护：连续失败达到阈值，且未过冷却时间则跳过
+        if (consecutiveFailures >= CIRCUIT_FAIL_THRESHOLD && lastFailureTime != null) {
+            Duration sinceLastFail = Duration.between(lastFailureTime, LocalDateTime.now());
+            if (sinceLastFail.compareTo(CIRCUIT_COOLDOWN) < 0) {
+                log.warn("抓取已熔断，距上次失败 {} 秒，等待冷却结束", sinceLastFail.getSeconds());
+                return;
+            } else {
+                consecutiveFailures = 0;
+            }
+        }
+
         log.info("开始抓取每日技术热点...");
         List<HotNews> newsList = new ArrayList<>();
 
-        // 尝试抓取 OSChina (开源中国)
         try {
-            // 设置超时时间，模拟浏览器 UA
-            Document doc = Jsoup.connect("https://www.oschina.net/news")
-                    .timeout(5000)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Referer", "https://www.oschina.net/")
-                    .get();
+            Document doc = fetchWithRetry("https://www.oschina.net/news", MAX_RETRY);
 
-            // OSChina 新闻列表通常在 .news-list-container .item 中
             Elements items = doc.select(".news-list-container .item");
             int count = 0;
             for (Element item : items) {
-                if (count >= 5) break;
+                if (count >= MAX_FETCH) break;
 
-                // 提取标题和链接
                 String title = "";
                 String url = item.attr("data-url");
 
@@ -57,7 +78,6 @@ public class NewsCrawlerTask {
                 if (titleEl != null) {
                     title = titleEl.text();
                 } else {
-                    // 备用选择器
                     Element headerLink = item.select(".content .header a").first();
                     if (headerLink != null) {
                         title = headerLink.text();
@@ -68,7 +88,6 @@ public class NewsCrawlerTask {
                 }
 
                 if (title != null && !title.isEmpty()) {
-                    // 处理相对链接
                     if (url != null && !url.startsWith("http")) {
                         url = "https://www.oschina.net" + url;
                     }
@@ -78,17 +97,19 @@ public class NewsCrawlerTask {
                     news.setUrl(url);
                     news.setSource("OSChina");
                     news.setPublishDate(LocalDateTime.now());
-                    // 替换为更稳定的 Lorem Picsum 或国外更快的静态图服务，确保在不同网络下更有保障
-                    // 使用 Picsum 的种子功能来为每条新闻获取相对客观的随机图
                     news.setImageUrl("https://picsum.photos/seed/" + (title.hashCode()) + "/800/450");
 
                     newsList.add(news);
                     count++;
                 }
             }
+
+            consecutiveFailures = 0;
+            lastFailureTime = null;
         } catch (Exception e) {
-            log.error("抓取 OSChina 失败，切换为生成模拟数据", e);
-            // 生成兜底数据
+            consecutiveFailures++;
+            lastFailureTime = LocalDateTime.now();
+            log.error("抓取 OSChina 失败，切换为生成模拟数据 (连续失败: {})", consecutiveFailures, e);
             generateMockNews(newsList);
         }
 
@@ -96,15 +117,32 @@ public class NewsCrawlerTask {
             generateMockNews(newsList);
         }
 
-        // 清理旧数据，只保留最新的，防止数据无限增长
         hotNewsService.remove(new LambdaQueryWrapper<HotNews>());
-
-        // 保存数据库
         for (HotNews news : newsList) {
             hotNewsService.save(news);
         }
 
         log.info("每日热点抓取完成，新增 {} 条", newsList.size());
+    }
+
+    private Document fetchWithRetry(String url, int maxRetries) throws Exception {
+        Exception last = null;
+        for (int i = 1; i <= maxRetries; i++) {
+            try {
+                return Jsoup.connect(url)
+                        .timeout(TIMEOUT_MS)
+                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .header("Referer", "https://www.oschina.net/")
+                        .header("Accept-Language", "zh-CN,zh;q=0.9")
+                        .header("Cache-Control", "no-cache")
+                        .get();
+            } catch (Exception e) {
+                last = e;
+                log.warn("抓取失败，第 {}/{} 次重试: {}", i, maxRetries, e.getMessage());
+                Thread.sleep(1200L * i);
+            }
+        }
+        throw last;
     }
 
     private void generateMockNews(List<HotNews> list) {
