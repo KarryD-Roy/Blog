@@ -118,6 +118,23 @@
             </div>
           </div>
         </div>
+
+        <div class="quick-nav-card" style="margin-top: 1rem;">
+          <div class="hot-news-title" style="margin-bottom: 1rem;">API官方文档</div>
+          <div class="nav-list">
+            <div
+              v-for="doc in apiDocs"
+              :key="doc.id"
+              class="nav-item"
+              @click="openLink(doc.url)"
+            >
+              <div class="nav-info">
+                <div class="nav-title">{{ doc.title }}</div>
+                <div class="nav-desc">{{ doc.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -145,12 +162,39 @@
             type="text"
             placeholder="标签，以英文逗号分隔，例如：Vue,后端,随笔"
           />
-          <select v-model="form.categoryId" class="input">
-            <option :value="null">选择分类（可选）</option>
-            <option v-for="c in categories" :key="c.id" :value="c.id">
-              {{ c.name }}
-            </option>
-          </select>
+          <div
+            class="custom-select-container"
+            @mouseenter="showCategoryDropdown = true"
+            @mouseleave="showCategoryDropdown = false"
+          >
+            <div
+              class="input select-trigger"
+            >
+              <span>{{ selectedCategoryName }}</span>
+              <!-- 下箭头图标由 input 样式的 background-image 提供，此处可不再额外添加 -->
+            </div>
+
+            <transition name="fade">
+              <div v-if="showCategoryDropdown" class="select-dropdown">
+                <div
+                  class="select-option placeholder"
+                  @click="selectCategory(null)"
+                  :class="{ selected: form.categoryId === null }"
+                >
+                  选择分类（可选）
+                </div>
+                <div
+                  v-for="c in categories"
+                  :key="c.id"
+                  class="select-option"
+                  :class="{ selected: form.categoryId === c.id }"
+                  @click="selectCategory(c.id)"
+                >
+                  {{ c.name }}
+                </div>
+              </div>
+            </transition>
+          </div>
           <div class="upload-row">
             <input
               ref="fileInput"
@@ -214,6 +258,7 @@ const page = ref(route.query.page ? parseInt(route.query.page) : 1);
 const totalPages = ref(0);
 
 const showEditor = ref(false);
+const showCategoryDropdown = ref(false); // 控制自定义下拉菜单显示
 const editingPost = ref(null);
 const form = reactive({
   title: '',
@@ -309,6 +354,19 @@ const startEdit = (post) => {
   showEditor.value = true;
 };
 
+// 获取当前选中的分类名称
+const selectedCategoryName = computed(() => {
+  if (!form.categoryId) return '选择分类（可选）';
+  const cat = categories.value.find(c => c.id === form.categoryId);
+  return cat ? cat.name : '选择分类（可选）';
+});
+
+// 选择分类
+const selectCategory = (id) => {
+  form.categoryId = id;
+  showCategoryDropdown.value = false;
+};
+
 const submitPost = async () => {
   if (!form.title.trim()) {
     return;
@@ -402,6 +460,14 @@ const quickNavs = ref([
   }
 ]);
 
+const apiDocs = ref([
+  { id: 1, title: 'Spring Framework API', desc: 'Spring 官方参考与 Javadoc', url: 'https://docs.spring.io/spring-framework/reference/' },
+  { id: 2, title: 'Spring Boot API', desc: 'Spring Boot 参考文档', url: 'https://docs.spring.io/spring-boot/docs/current/reference/html/' },
+  { id: 3, title: 'LangChain JS/TS', desc: 'LangChain 官方文档 (JS/TS)', url: 'https://js.langchain.com/docs/' },
+  { id: 4, title: 'LangChain Python', desc: 'LangChain 官方文档 (Python)', url: 'https://python.langchain.com/docs/' },
+  { id: 5, title: 'Vue 3 文档', desc: 'Vue 3 官方文档', url: 'https://cn.vuejs.org/guide/introduction.html' }
+]);
+
 const hotNews = ref([]);
 const today = computed(() => new Date().toLocaleDateString());
 
@@ -433,3 +499,8 @@ onMounted(() => {
   fetchHotNews();
 });
 </script>
+
+
+
+
+
