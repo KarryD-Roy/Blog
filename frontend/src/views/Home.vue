@@ -2,7 +2,8 @@
   <div class="page">
 
     <div class="home-layout">
-      <aside class="hot-news-card">
+      <div class="left-column">
+        <aside class="hot-news-card">
         <div class="hot-news-header">
           <div>
             <div class="hot-news-title">技术热点资讯</div>
@@ -18,6 +19,7 @@
             :space-between="20"
             :pagination="{ clickable: true }"
             :autoplay="{ delay: 4000, disableOnInteraction: false }"
+            :loop="true"
             class="my-swiper"
           >
             <swiper-slide v-for="item in hotNews" :key="item.id">
@@ -36,6 +38,42 @@
         </div>
         <div v-else class="center-text" style="padding: 1rem;">暂无热点资讯</div>
       </aside>
+
+      <div class="quick-nav-card" style="margin-top: 1rem;">
+          <div class="hot-news-title" style="margin-bottom: 1rem;">快捷导航</div>
+          <div class="nav-list">
+            <div
+              v-for="nav in quickNavs"
+              :key="nav.id"
+              class="nav-item"
+              @click="openLink(nav.url)"
+            >
+              <img :src="nav.icon" class="nav-icon" alt="icon" />
+              <div class="nav-info">
+                <div class="nav-title">{{ nav.title }}</div>
+                <div class="nav-desc">{{ nav.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-nav-card" style="margin-top: 1rem;">
+          <div class="hot-news-title" style="margin-bottom: 1rem;">API官方文档</div>
+          <div class="nav-list">
+            <div
+              v-for="doc in apiDocs"
+              :key="doc.id"
+              class="nav-item"
+              @click="openLink(doc.url)"
+            >
+              <div class="nav-info">
+                <div class="nav-title">{{ doc.title }}</div>
+                <div class="nav-desc">{{ doc.desc }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
 
       <div class="main-column">
         <div class="main-header">
@@ -98,43 +136,7 @@
             </button>
           </div>
         </div>
-      </div>
 
-      <div class="right-column">
-        <div class="quick-nav-card">
-          <div class="hot-news-title" style="margin-bottom: 1rem;">快捷导航</div>
-          <div class="nav-list">
-            <div
-              v-for="nav in quickNavs"
-              :key="nav.id"
-              class="nav-item"
-              @click="openLink(nav.url)"
-            >
-              <img :src="nav.icon" class="nav-icon" alt="icon" />
-              <div class="nav-info">
-                <div class="nav-title">{{ nav.title }}</div>
-                <div class="nav-desc">{{ nav.desc }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="quick-nav-card" style="margin-top: 1rem;">
-          <div class="hot-news-title" style="margin-bottom: 1rem;">API官方文档</div>
-          <div class="nav-list">
-            <div
-              v-for="doc in apiDocs"
-              :key="doc.id"
-              class="nav-item"
-              @click="openLink(doc.url)"
-            >
-              <div class="nav-info">
-                <div class="nav-title">{{ doc.title }}</div>
-                <div class="nav-desc">{{ doc.desc }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -234,7 +236,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, reactive, watch } from 'vue';
+import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import MarkdownIt from 'markdown-it';
@@ -500,7 +502,142 @@ onMounted(() => {
 });
 </script>
 
+<style scoped>
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
 
+.home-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem 0;
+  align-items: start;
+}
 
+@media (max-width: 1100px) {
+  .home-layout {
+    grid-template-columns: 1fr;
+  }
+}
 
+.left-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
 
+.hot-news-card {
+  width: 100%;
+  background: radial-gradient(circle at top left, #1e293b, #020617);
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.7);
+  padding: 1rem;
+  color: #e5e7eb;
+}
+
+.hot-news-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.hot-news-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.hot-news-subtitle {
+  font-size: 0.8rem;
+  color: #9ca3af;
+}
+
+.hot-news-date {
+  font-size: 0.8rem;
+  color: #7dd3fc;
+}
+
+.hot-news-carousel {
+  position: relative;
+  overflow: hidden;
+}
+
+.my-swiper {
+  width: 100%;
+  padding-bottom: 30px;
+}
+
+.hot-news-slide {
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #0f172a;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.hot-news-slide:hover {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  box-shadow: 0 16px 36px rgba(8, 47, 73, 0.55);
+}
+
+.hot-news-image {
+  width: 100%;
+  height: 180px;
+  background-size: cover;
+  background-position: center;
+}
+
+.hot-news-info {
+  padding: 0.8rem 0.9rem 0.9rem;
+}
+
+.hot-news-item-title {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #e5e7eb;
+}
+
+.hot-news-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6rem;
+  padding: 0 0.2rem;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.center-text {
+  text-align: center;
+  color: #9ca3af;
+}
+</style>

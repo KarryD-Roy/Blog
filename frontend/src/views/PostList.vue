@@ -12,16 +12,29 @@
           @keyup.enter="handleFilter"
         />
 
-        <select v-model="categoryId" class="input">
-          <option value="">全部分类</option>
-          <option
-            v-for="c in categories"
-            :key="c.id"
-            :value="c.id"
-          >
-            {{ c.name }}
-          </option>
-        </select>
+        <div class="custom-select-container"
+             @mouseenter="showCategoryDropdown = true"
+             @mouseleave="showCategoryDropdown = false">
+          <div class="input select-trigger">
+            <span>{{ selectedCategoryName }}</span>
+          </div>
+          <transition name="fade">
+            <div v-if="showCategoryDropdown" class="select-dropdown">
+              <div class="select-option placeholder"
+                   :class="{ selected: categoryId === '' }"
+                   @click="selectCategory('')">
+                全部分类
+              </div>
+              <div class="select-option"
+                   v-for="c in categories"
+                   :key="c.id"
+                   :class="{ selected: categoryId === c.id }"
+                   @click="selectCategory(c.id)">
+                {{ c.name }}
+              </div>
+            </div>
+          </transition>
+        </div>
 
         <input
           v-model="tag"
@@ -96,7 +109,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -115,6 +128,13 @@ const posts = ref([]);
 const loading = ref(false);
 const page = ref(route.query.page ? parseInt(route.query.page) : 1);
 const totalPages = ref(1);
+const showCategoryDropdown = ref(false);
+
+const selectedCategoryName = computed(() => {
+  if (categoryId.value === '' || categoryId.value === null) return '全部分类';
+  const cat = categories.value.find(c => c.id === categoryId.value);
+  return cat ? cat.name : '全部分类';
+});
 
 const fetchCategories = async () => {
   try {
@@ -189,6 +209,11 @@ const goDetail = (id) => {
   router.push({ name: 'post-detail', params: { id } });
 };
 
+const selectCategory = (id) => {
+  categoryId.value = id;
+  handleFilter();
+};
+
 watch(
   () => route.query,
   (newQuery) => {
@@ -206,3 +231,6 @@ onMounted(() => {
   fetchPosts();
 });
 </script>
+
+
+

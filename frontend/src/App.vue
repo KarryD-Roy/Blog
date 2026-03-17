@@ -5,6 +5,7 @@
       <nav class="nav">
         <RouterLink to="/">首页</RouterLink>
         <RouterLink to="/skills">技能图谱</RouterLink>
+        <RouterLink to="/statistics">数据统计</RouterLink>
         <RouterLink to="/search">搜索</RouterLink>
         <RouterLink to="/posts">文章大全</RouterLink>
       </nav>
@@ -25,4 +26,3 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router';
 </script>
-
