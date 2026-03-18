@@ -83,6 +83,10 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
+defineOptions({
+  name: 'Search'
+});
+
 const router = useRouter();
 
 const keyword = ref('');
@@ -158,8 +162,11 @@ const goDetail = (id) => {
 };
 
 onMounted(() => {
-  fetchTags();
-  fetchPosts();
+  if (tags.value.length === 0) {
+    fetchTags();
+  }
+  if (posts.value.length === 0) {
+    fetchPosts();
+  }
 });
 </script>
-

@@ -89,9 +89,16 @@
 
 - 入口：导航栏点击「搜索」或访问 `/search`。
 - 功能集成：
-  - **关键词搜索**：支持标题、摘要、正文、标签的全文检索。
+  - **关键词搜索**：支持标题、摘要、正文、标签的全文检索（默认命中文档优先按照置顶、发布时间排序）。
   - **快捷标签**：点击标签云中的标签可快速过滤内容。
   - **分页策略**：搜索结果每页展示 **6 篇内容**。
+- **ElasticSearch 支持（可选）**：
+  - 后端已接入 Spring Data Elasticsearch，默认 `search.elasticsearch.enabled=false`，保持数据库模糊查询兼容。
+  - 启用步骤：
+    1) 本地启动 ES（示例：`docker run -d --name blog-es -p 9200:9200 -e "discovery.type=single-node" elasticsearch:8.12.2`）。
+    2) 将 `backend/src/main/resources/application.yml` 中 `search.elasticsearch.enabled` 置为 `true`，按需填写 `uris`/`username`/`password`/`index`。
+    3) 首次启用后调用 `POST /api/posts/reindex` 完成本地数据的全量回填，后续增删改会自动同步索引。
+  - 失败降级：如果 ES 不可用或未启用，搜索接口自动回退到 MySQL 的 `LIKE` 检索。
 
 ---
 

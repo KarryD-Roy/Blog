@@ -11,9 +11,20 @@ spring:
     redis:
       host: localhost
       port: 6379
+    elasticsearch:
+      repositories:
+        enabled: ${search.elasticsearch.enabled:false}
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
+
+search:
+  elasticsearch:
+    enabled: true
+    uris: http://localhost:9201
+    username: ''
+    password: ''
+    index: blog_posts
 
 mybatis-plus:
   configuration:
@@ -34,4 +45,3 @@ aliyun:
     bucket-name: tech-blog1
     # 建议配置为 Bucket 的公网访问前缀，方便前端直接预览
     public-url-prefix: https://tech-blog1.oss-cn-hangzhou.aliyuncs.com
-

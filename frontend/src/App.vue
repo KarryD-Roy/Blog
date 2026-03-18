@@ -12,7 +12,7 @@
     </header>
     <main class="main">
       <router-view v-slot="{ Component }">
-        <keep-alive include="Home,PostList">
+        <keep-alive include="Home,PostList,Search">
           <component :is="Component" />
         </keep-alive>
       </router-view>

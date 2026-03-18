@@ -1,9 +1,12 @@
 package com.example.blog.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.example.blog.config.SearchProperties;
 import com.example.blog.entity.Post;
+import com.example.blog.search.PostSearchService;
 import com.example.blog.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -23,6 +26,8 @@ import java.util.stream.Collectors;
 public class PostController {
 
     private final PostService postService;
+    private final PostSearchService postSearchService;
+    private final SearchProperties searchProperties;
 
     @Cacheable(cacheNames = "latestPosts", key = "#page + ':' + #size")
     @GetMapping
@@ -36,7 +41,7 @@ public class PostController {
     }
 
     /**
-     * 文章检索接口（用于搜索和文章大全）
+     * 文章检索接口（用于搜索和文章大全），优先使用 ES
      */
     @GetMapping("/query")
     public ApiResponse<IPage<Post>> query(
@@ -46,6 +51,11 @@ public class PostController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String tag
     ) {
+        if (searchProperties.isEnabled()) {
+            IPage<Post> result = postSearchService.search(page, size, keyword, categoryId, tag);
+            return ApiResponse.ok(result);
+        }
+
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
@@ -65,7 +75,6 @@ public class PostController {
             String trimmed = tag.trim();
             wrapper.like(Post::getTags, trimmed);
         }
-        // 文章大全 / 搜索：先按置顶降序，再按发布时间倒序
         wrapper.orderByDesc(Post::getPinned).orderByDesc(Post::getCreatedAt);
         IPage<Post> result = postService.page(Page.of(page, size), wrapper);
         return ApiResponse.ok(result);
@@ -84,6 +93,7 @@ public class PostController {
         post.setPinned(pinned);
         post.setUpdatedAt(LocalDateTime.now());
         postService.updateById(post);
+        postSearchService.index(post);
         return ApiResponse.ok(post);
     }
 
@@ -105,12 +115,32 @@ public class PostController {
 
     @GetMapping("/{id}")
     public ApiResponse<Post> detail(@PathVariable Long id) {
-        Post post = postService.getById(id);
+        Post post = null;
+        if (searchProperties.isEnabled()) {
+            post = postSearchService.getById(id);
+        }
+
+        if (post == null) {
+            post = postService.getById(id);
+        }
+
         if (post == null) {
             return ApiResponse.error("文章不存在");
         }
-        post.setViewCount(post.getViewCount() == null ? 1 : post.getViewCount() + 1);
-        postService.updateById(post);
+
+        // Increase view count
+        int viewCount = post.getViewCount() == null ? 0 : post.getViewCount();
+        post.setViewCount(viewCount + 1);
+
+        // Optimize DB update: only update view_count
+        LambdaUpdateWrapper<Post> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Post::getId, id).set(Post::getViewCount, post.getViewCount());
+        postService.update(updateWrapper);
+
+        // Update ES
+        if (searchProperties.isEnabled()) {
+            postSearchService.index(post);
+        }
         return ApiResponse.ok(post);
     }
 
@@ -123,6 +153,7 @@ public class PostController {
         post.setUpdatedAt(now);
         post.setViewCount(0);
         postService.save(post);
+        postSearchService.index(post);
         return ApiResponse.ok(post);
     }
 
@@ -132,6 +163,7 @@ public class PostController {
         post.setId(id);
         post.setUpdatedAt(LocalDateTime.now());
         postService.updateById(post);
+        postSearchService.index(post);
         return ApiResponse.ok(post);
     }
 
@@ -139,7 +171,13 @@ public class PostController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         postService.removeById(id);
+        postSearchService.delete(id);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/reindex")
+    public ApiResponse<Void> reindex() {
+        postSearchService.reindexAll();
         return ApiResponse.ok(null);
     }
 }
-
