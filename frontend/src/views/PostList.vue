@@ -109,7 +109,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onActivated, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -226,11 +226,26 @@ watch(
   }
 );
 
+watch(
+  () => route.name,
+  (newName) => {
+    if (newName === 'post-list') {
+      fetchPosts();
+    }
+  }
+);
+
 onMounted(() => {
   fetchCategories();
   fetchPosts();
 });
+
+onActivated(() => {
+  fetchPosts();
+});
 </script>
+
+
 
 
 

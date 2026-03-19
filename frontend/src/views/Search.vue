@@ -79,8 +79,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { onActivated, onMounted, ref, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
 defineOptions({
@@ -88,6 +88,7 @@ defineOptions({
 });
 
 const router = useRouter();
+const route = useRoute();
 
 const keyword = ref('');
 const selectedTag = ref('');
@@ -161,6 +162,15 @@ const goDetail = (id) => {
   router.push({ name: 'post-detail', params: { id } });
 };
 
+watch(
+  () => route.name,
+  (newName) => {
+    if (newName === 'search') {
+      fetchPosts();
+    }
+  }
+);
+
 onMounted(() => {
   if (tags.value.length === 0) {
     fetchTags();
@@ -168,5 +178,9 @@ onMounted(() => {
   if (posts.value.length === 0) {
     fetchPosts();
   }
+});
+
+onActivated(() => {
+  fetchPosts();
 });
 </script>

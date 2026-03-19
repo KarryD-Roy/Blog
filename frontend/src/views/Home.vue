@@ -236,7 +236,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, reactive, watch, nextTick } from 'vue';
+import { computed, onMounted, onActivated, ref, reactive, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import MarkdownIt from 'markdown-it';
@@ -325,6 +325,15 @@ watch(
     if (route.name !== 'home') return;
     page.value = newPage ? parseInt(newPage) : 1;
     fetchPosts();
+  }
+);
+
+watch(
+  () => route.name,
+  (newName) => {
+    if (newName === 'home') {
+      fetchPosts();
+    }
   }
 );
 
@@ -499,6 +508,10 @@ onMounted(() => {
   fetchPosts();
   fetchCategories();
   fetchHotNews();
+});
+
+onActivated(() => {
+  fetchPosts();
 });
 </script>
 

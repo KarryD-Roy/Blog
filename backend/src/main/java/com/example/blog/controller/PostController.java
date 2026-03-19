@@ -29,7 +29,7 @@ public class PostController {
     private final PostSearchService postSearchService;
     private final SearchProperties searchProperties;
 
-    @Cacheable(cacheNames = "latestPosts", key = "#page + ':' + #size")
+    @Cacheable(cacheNames = "posts:list", key = "'p'+#page+'_'+#size")
     @GetMapping
     public ApiResponse<IPage<Post>> page(
             @RequestParam(defaultValue = "1") long page,
@@ -83,7 +83,7 @@ public class PostController {
     /**
      * 单独更新文章置顶状态
      */
-    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
+    @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @PutMapping("/{id}/pin")
     public ApiResponse<Post> updatePin(@PathVariable Long id, @RequestParam boolean pinned) {
         Post post = postService.getById(id);
@@ -113,6 +113,7 @@ public class PostController {
         return ApiResponse.ok(tags);
     }
 
+    @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @GetMapping("/{id}")
     public ApiResponse<Post> detail(@PathVariable Long id) {
         Post post = null;
@@ -128,23 +129,18 @@ public class PostController {
             return ApiResponse.error("文章不存在");
         }
 
-        // Increase view count
-        int viewCount = post.getViewCount() == null ? 0 : post.getViewCount();
-        post.setViewCount(viewCount + 1);
+        Post updated = postService.incrementViewCount(id);
+        if (updated != null) {
+            post.setViewCount(updated.getViewCount());
+        }
 
-        // Optimize DB update: only update view_count
-        LambdaUpdateWrapper<Post> updateWrapper = new LambdaUpdateWrapper<>();
-        updateWrapper.eq(Post::getId, id).set(Post::getViewCount, post.getViewCount());
-        postService.update(updateWrapper);
-
-        // Update ES
         if (searchProperties.isEnabled()) {
             postSearchService.index(post);
         }
         return ApiResponse.ok(post);
     }
 
-    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
+    @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @PostMapping
     public ApiResponse<Post> create(@RequestBody Post post) {
         post.setId(null);
@@ -157,7 +153,7 @@ public class PostController {
         return ApiResponse.ok(post);
     }
 
-    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
+    @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @PutMapping("/{id}")
     public ApiResponse<Post> update(@PathVariable Long id, @RequestBody Post post) {
         post.setId(id);
@@ -167,7 +163,7 @@ public class PostController {
         return ApiResponse.ok(post);
     }
 
-    @CacheEvict(cacheNames = "latestPosts", allEntries = true)
+    @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         postService.removeById(id);
