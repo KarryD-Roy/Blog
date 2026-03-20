@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.blog.config.SearchProperties;
 import com.example.blog.entity.Post;
 import com.example.blog.search.PostSearchService;
+import com.example.blog.service.AiService;
 import com.example.blog.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -28,6 +29,7 @@ public class PostController {
     private final PostService postService;
     private final PostSearchService postSearchService;
     private final SearchProperties searchProperties;
+    private final AiService aiService;
 
     @Cacheable(cacheNames = "posts:list", key = "'p'+#page+'_'+#size")
     @GetMapping
@@ -150,6 +152,13 @@ public class PostController {
         post.setViewCount(0);
         postService.save(post);
         postSearchService.index(post);
+        // Asynchronously ingest into Vector DB
+        try {
+             aiService.ingestArticle(post.getId());
+        } catch (Exception e) {
+            // Log but don't fail the request
+            e.printStackTrace();
+        }
         return ApiResponse.ok(post);
     }
 
@@ -160,6 +169,13 @@ public class PostController {
         post.setUpdatedAt(LocalDateTime.now());
         postService.updateById(post);
         postSearchService.index(post);
+         // Asynchronously ingest into Vector DB
+        try {
+             aiService.ingestArticle(post.getId());
+        } catch (Exception e) {
+            // Log but don't fail the request
+             e.printStackTrace();
+        }
         return ApiResponse.ok(post);
     }
 

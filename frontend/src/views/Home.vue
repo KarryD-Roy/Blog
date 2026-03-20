@@ -162,7 +162,7 @@
             v-model="form.tags"
             class="input"
             type="text"
-            placeholder="标签，以英文逗号分隔，例如：Vue,后端,随笔"
+            placeholder="标签，支持中/英文逗号分隔，例如：Vue，后端，随笔"
           />
           <div
             class="custom-select-container"
@@ -236,7 +236,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onActivated, ref, reactive, watch, nextTick } from 'vue';
+import { computed, onMounted, onActivated, ref, reactive, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 import MarkdownIt from 'markdown-it';
@@ -386,7 +386,7 @@ const submitPost = async () => {
     title: form.title,
     summary: form.summary,
     content: form.content,
-    tags: form.tags,
+    tags: form.tags ? form.tags.replace(/，/g, ',') : '',
     categoryId: form.categoryId
   };
   if (editingPost.value && editingPost.value.id) {

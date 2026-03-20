@@ -45,3 +45,7 @@ aliyun:
     bucket-name: tech-blog1
     # 建议配置为 Bucket 的公网访问前缀，方便前端直接预览
     public-url-prefix: https://tech-blog1.oss-cn-hangzhou.aliyuncs.com
+
+ai:
+  service:
+    url: http://localhost:8000/api/ai

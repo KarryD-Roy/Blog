@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+langchain
+langchain-community
+langchain-text-splitters
+chromadb
+pydantic
+python-multipart
+requests
+python-dotenv
+dashscope
+httpx
+sse-starlette

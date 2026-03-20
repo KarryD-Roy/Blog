@@ -27,6 +27,36 @@
 
 后端会在启动时自动创建表结构，并通过 `schema.sql` / `data.sql` 向数据库中写入包含「技能」在内的示例初始数据。
 
+## 新增功能：AI 辅助模块 (New AI Assistant Module)
+
+### 1. Python AI Service Setup
+
+首先配置 Python 环境并安装依赖：
+```bash
+cd ai_service
+# 建议使用 venv 虚拟环境
+python -m venv venv
+# Windows: venv\Scripts\activate
+# Linux/Mac: source venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+配置环境变量：
+复制 `.env.example` 为 `.env`，并在 `.env` 中填入你的 `DASHSCOPE_API_KEY`。
+
+运行 AI 服务：
+```bash
+python main.py
+```
+服务运行在 `http://localhost:8000`。
+
+### 2. 功能说明
+
+- **AI 总结**：在文章详情页点击“✨ AI 一键总结”，AI 会通过 SSE 流式输出文章摘要。
+- **AI 写作/推荐**：提供 `/api/ai/write` 和 `/api/ai/recommend` 接口供扩展开发。
+- **RAG 检索**：文章发布或更新时，会自动同步到向量数据库 (ChromaDB)，支持基于语义的相似文章推荐。
+
 ---
 
 ### 缓存与 Redis 使用
