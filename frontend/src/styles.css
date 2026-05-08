@@ -23,7 +23,7 @@ a {
 .header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -51,6 +51,53 @@ a {
 
 .nav a.router-link-active {
   border-color: #38bdf8;
+  color: #e0f2fe;
+}
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-trigger {
+  font-size: 0.95rem;
+  padding-bottom: 0.1rem;
+  cursor: pointer;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: -20px;
+  background-color: #1e293b;
+  min-width: 140px;
+  box-shadow: 0px 12px 24px rgba(0,0,0,0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  z-index: 100;
+  padding: 0.5rem 0;
+}
+
+.dropdown-content a {
+  padding: 0.6rem 1rem;
+  display: block;
+  border: none !important;
+  color: #e5e7eb;
+}
+
+.dropdown-content a:hover,
+.dropdown-content a.router-link-active {
+  background-color: #334155;
+  color: #38bdf8 !important;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+.dropdown:hover .dropdown-trigger,
+.dropdown:has(a.router-link-active) .dropdown-trigger {
   color: #e0f2fe;
 }
 
