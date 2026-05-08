@@ -4,25 +4,25 @@ import com.example.blog.entity.Post;
 import com.example.blog.service.AiService;
 import com.example.blog.service.PostService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Arrays;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Service
 public class AiServiceImpl implements AiService {
 
     private final PostService postService;
     private final WebClient webClient;
-    private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @Value("${ai.service.url}")
     private String aiServiceUrl;
@@ -45,66 +45,68 @@ public class AiServiceImpl implements AiService {
         requestBody.put("article_id", articleId.toString());
         requestBody.put("content", post.getContent());
 
-        Flux<String> eventStream = webClient.post()
+        Flux<ServerSentEvent<String>> eventStream = webClient.post()
                 .uri(aiServiceUrl + "/summary")
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .bodyValue(requestBody)
                 .retrieve()
-                .bodyToFlux(String.class);
+                .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {});
 
         eventStream.subscribe(
-            data -> {
+            content -> {
                 try {
-                    // Python sse-starlette sends "data: message"
-                    // We can just forward the raw data or clean it.
-                    // For simplicity, let's just forward the content valid for SseEmitter
-                    // But SseEmitter.send() wraps in data: ...
-                    // So we should try to extract the payload if possible
-                    // Or simply send object.
-
-                    // Simple heuristic: if it looks like SSE data line, strip prefix
-                   /* if (data.startsWith("data: ")) {
-                        String payload = data.substring(6);
-                        emitter.send(payload);
-                    } */
-                    // Actually webclient bodyToFlux(String) with TEXT_EVENT_STREAM usually returns the data payload only if properly decoded
-                    // Let's assume it returns payload
-                    emitter.send(data);
+                    String data = content.data();
+                    if (data != null) {
+                        emitter.send(data);
+                    }
                 } catch (Exception e) {
                     emitter.completeWithError(e);
                 }
             },
-            error -> emitter.completeWithError(error),
-            () -> emitter.complete()
+            emitter::completeWithError,
+            emitter::complete
         );
 
         return emitter;
     }
 
     @Override
-    public String generateDraft(List<String> materials, String style) {
+    public SseEmitter generateDraft(List<String> materials, String style) {
+        SseEmitter emitter = new SseEmitter(300_000L); // 5 minutes timeout
+
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("materials", materials);
         requestBody.put("style", style);
 
-        try {
-            Map response = webClient.post()
-                    .uri(aiServiceUrl + "/write")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .block();
+        Flux<ServerSentEvent<String>> eventStream = webClient.post()
+                .uri(aiServiceUrl + "/write")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {});
 
-            if (response != null && response.containsKey("draft")) {
-                return (String) response.get("draft");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "AI Service is currently unavailable.";
-        }
-        return "";
+        eventStream.subscribe(
+            content -> {
+                try {
+                    String data = content.data();
+                    if (data != null) {
+                        // Avoid double wrapping if SseEmitter adds "data:" prefix
+                        // SseEmitter.send(object) formats as "data:object\n\n"
+                        // Our frontend expects "data: <content>"
+                        // However, if the content contains newlines, SseEmitter handles it.
+                        emitter.send(data);
+                    }
+                } catch (Exception e) {
+                    emitter.completeWithError(e);
+                }
+            },
+            emitter::completeWithError,
+            emitter::complete
+        );
+
+        return emitter;
     }
 
     @Override

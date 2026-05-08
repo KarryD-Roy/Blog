@@ -22,11 +22,10 @@ public class AiController {
     }
 
     @PostMapping("/write")
-    public ResponseEntity<ApiResponse<String>> generateDraft(@RequestBody Map<String, Object> request) {
+    public SseEmitter generateDraft(@RequestBody Map<String, Object> request) {
         List<String> materials = (List<String>) request.get("materials");
         String style = (String) request.getOrDefault("style", "technical");
-        String draft = aiService.generateDraft(materials, style);
-        return ResponseEntity.ok(ApiResponse.ok(draft));
+        return aiService.generateDraft(materials, style);
     }
 
     @PostMapping("/recommend")

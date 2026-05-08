@@ -6,12 +6,19 @@ from langchain_core.documents import Document
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
+# Get the absolute path of the directory containing this file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# Go up one level to ai_service directory
+ai_service_dir = os.path.dirname(current_dir)
+
 load_dotenv()
 
 class RAGService:
     def __init__(self):
         self.api_key = os.getenv("DASHSCOPE_API_KEY")
-        self.persist_directory = os.getenv("CHROMA_DB_PATH", "./chroma_db")
+        # Use absolute path for chroma_db to avoid CWD issues
+        default_chroma_path = os.path.join(ai_service_dir, "chroma_db")
+        self.persist_directory = os.getenv("CHROMA_DB_PATH", default_chroma_path)
 
         if self.api_key:
              self.embeddings = DashScopeEmbeddings(dashscope_api_key=self.api_key, model="text-embedding-v1")

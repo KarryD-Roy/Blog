@@ -5,6 +5,8 @@ import Skills from '../views/Skills.vue';
 import Search from '../views/Search.vue';
 import PostList from '../views/PostList.vue';
 import Statistics from '../views/Statistics.vue';
+import AiWriter from '../views/AiWriter.vue';
+import AiRecommendation from '../views/AiRecommendation.vue';
 
 const routes = [
   { path: '/', name: 'home', component: Home },
@@ -12,7 +14,9 @@ const routes = [
   { path: '/skills', name: 'skills', component: Skills },
   { path: '/search', name: 'search', component: Search },
   { path: '/posts', name: 'post-list', component: PostList },
-  { path: '/statistics', name: 'statistics', component: Statistics }
+  { path: '/statistics', name: 'statistics', component: Statistics },
+  { path: '/ai/writer', name: 'ai-writer', component: AiWriter },
+  { path: '/ai/recommendation', name: 'ai-recommendation', component: AiRecommendation }
 ];
 
 const router = createRouter({

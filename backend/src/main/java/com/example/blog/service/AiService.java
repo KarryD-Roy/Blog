@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface AiService {
     SseEmitter summarizeArticle(Long articleId);
-    String generateDraft(List<String> materials, String style);
+    SseEmitter generateDraft(List<String> materials, String style);
     Map<String, Object> getRecommendations(String query);
     void ingestArticle(Long articleId);
 }

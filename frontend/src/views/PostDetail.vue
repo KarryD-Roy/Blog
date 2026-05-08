@@ -11,9 +11,21 @@
       <p class="card-summary">{{ post.summary }}</p>
 
       <div class="ai-summary-section">
-        <button v-if="!summaryLoading && !summaryContent" @click="generateSummary" class="btn primary small">✨ AI 一键总结</button>
-        <div v-if="summaryLoading || summaryContent" class="ai-summary-box">
+        <button v-if="!summaryLoading && !rawSummary" @click="generateSummary" class="btn primary small">✨ AI 一键总结</button>
+        <div v-if="summaryLoading || rawSummary" class="ai-summary-box">
           <h4>🤖 AI 智能总结</h4>
+
+          <div v-if="thinkingProcess" class="thinking-process-container">
+            <div class="thinking-header" @click="isThinkingExpanded = !isThinkingExpanded">
+              <span class="thinking-icon">🤔</span>
+              <span class="thinking-title">思考过程</span>
+              <span class="thinking-toggle">{{ isThinkingExpanded ? '收起' : '展开' }}</span>
+            </div>
+            <div v-if="isThinkingExpanded" class="thinking-content">
+              {{ thinkingProcess }}
+            </div>
+          </div>
+
           <div class="ai-summary-content" v-html="renderedSummary"></div>
           <span v-if="summaryLoading" class="cursor">|</span>
         </div>
@@ -40,46 +52,93 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
-import MarkdownIt from 'markdown-it';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 
 const route = useRoute();
 const post = ref(null);
 const loading = ref(false);
 const summaryLoading = ref(false);
-const summaryContent = ref('');
+const rawSummary = ref('');
+const isThinkingExpanded = ref(false);
 
-const renderedSummary = computed(() => {
-  if (!summaryContent.value) return '';
-  let content = summaryContent.value;
-
-  // 1. 统一换行符
-  content = content.replace(/\r\n/g, '\n');
-
-  // 2. 移除分隔线行 (--- / *** / ___)，这些在 UI 上也是多余的
-  content = content.replace(/^\s*([-*_])\1{2,}\s*$/gm, '');
-
-  // 3. 移除只有列表符号但没有内容的空行，保持整洁
-  content = content.replace(/(^|\n)\s*([*-]|\d+[.、)])\s*(?=\n|$)/g, '\n');
-
-  // 修复：处理内联列表项（文本后直接跟 - **Title**），强制换行
-  content = content.replace(/([^\n])\s*([-*])\s+(?=\*\*)/g, '$1\n\n- ');
-
-  // 修复：确保列表符号后有空格 (*Text -> * Text)，避免 markdown 解析失效
-  content = content.replace(/(^|\n)\s*([*-])(?=[^\s*-])/g, '$1$2 ');
-
-  // 修复：确保列表项前有空行，避免与上一段文字粘连
-  content = content.replace(/([^\n])\n(\s*[*-] )/g, '$1\n\n$2');
-
-  // 4. 清理多余空行 (最多连续两个换行)
-  content = content.replace(/\n{3,}/g, '\n\n');
-
-  return md.render(content.trim());
+const thinkingProcess = computed(() => {
+  const content = rawSummary.value;
+  const match = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
+  return match ? match[1].trim() : '';
 });
 
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  breaks: true
+const cleanSummary = computed(() => {
+  const content = rawSummary.value;
+  const thinkEnd = content.indexOf('</think>');
+  if (thinkEnd !== -1) {
+    return content.substring(thinkEnd + 8).trim();
+  }
+  // If we are still streaming thinking process (no closing tag yet)
+  if (content.startsWith('<think>')) {
+      return '';
+  }
+  return content;
+});
+
+const renderer = new marked.Renderer();
+renderer.code = (code, infostring) => {
+  const lang = (infostring || '').match(/\S+/)?.[0];
+  let highlighted = '';
+
+  if (lang && hljs.getLanguage(lang)) {
+    highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+  } else {
+    highlighted = hljs.highlightAuto(code).value;
+  }
+
+  const langClass = lang ? `language-${lang}` : 'language-plaintext';
+  return `<pre class="hljs"><code class="${langClass}">${highlighted}</code></pre>`;
+};
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+  renderer
+});
+
+const renderedSummary = computed(() => {
+  if (!cleanSummary.value) return '';
+  let content = cleanSummary.value;
+
+  // 1. 移除 "(空行)" 替换为换行，避免文字粘连
+  content = content.replace(/\(空行\)/g, '\n');
+
+  // 2. 去除常见的模板包裹 prefix (保留内容)
+  // Remove the closing bracket of the insight block if present
+  content = content.replace(/]\s*(\n|$)/, '$1');
+
+  // 3. 统一换行符
+  content = content.replace(/\r\n/g, '\n');
+
+  // 4. 修复 Markdown 列表格式 (Aggressive fixes)
+
+  // Fix: 强制文本后跟随的 - ** 换行 (处理 "text - **Title**" 情况)
+  content = content.replace(/([^\n])\s*[-*]\s*(\*\*)/g, '$1\n\n- $2');
+
+  // Fix: 标点符号后跟随的 - Item 强制换行
+  content = content.replace(/([。！？.!?])\s*[-*]\s+(?=[^\s])/g, '$1\n\n- ');
+
+  // Fix: 确保列表符号后有空格 (-Item -> - Item) - Markdown 必须
+  content = content.replace(/(^|\n)\s*([-*])(?=[^\s])/g, '$1$2 ');
+
+  // Fix: 确保列表项前有空行 (text\n- Item -> text\n\n- Item)
+  content = content.replace(/([^\n])\n\s*([-*]\s)/g, '$1\n\n$2');
+
+  // 5. 移除分割线
+  content = content.replace(/^\s*([-*_])\1{2,}\s*$/gm, '');
+
+  content = content.trim();
+
+  const rawHtml = marked.parse(content);
+  return DOMPurify.sanitize(rawHtml, { ADD_ATTR: ['class'] });
 });
 
 const attachments = computed(() => {
@@ -114,7 +173,8 @@ const renderedContent = computed(() => {
   if (trimmed.startsWith('<')) {
     return raw;
   }
-  return md.render(raw);
+  const rawHtml = marked.parse(raw);
+  return DOMPurify.sanitize(rawHtml, { ADD_ATTR: ['class'] });
 });
 
 const fetchDetail = async () => {
@@ -133,7 +193,8 @@ const generateSummary = () => {
   if (!post.value || !post.value.id) return;
 
   summaryLoading.value = true;
-  summaryContent.value = '';
+  rawSummary.value = '';
+  isThinkingExpanded.value = true; // Auto-expand when thinking starts
 
   const eventSource = new EventSource(`/api/ai/summary/${post.value.id}`);
 
@@ -147,7 +208,7 @@ const generateSummary = () => {
       }
     } catch (e) {}
 
-    summaryContent.value += data;
+    rawSummary.value += data;
   };
 
   eventSource.onerror = (err) => {
@@ -353,6 +414,72 @@ onMounted(fetchDetail);
 .ai-summary-content :deep(p + ul),
 .ai-summary-content :deep(p + ol) {
   margin-top: -4px;
+}
+
+.thinking-process-container {
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background-color: rgba(30, 30, 30, 0.5);
+  overflow: hidden; /* Prevent child overflow */
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.thinking-header:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.thinking-icon {
+  margin-right: 8px;
+  font-size: 1.2em;
+}
+
+.thinking-title {
+  flex-grow: 1;
+  font-weight: 600;
+  color: #d1d5db; /* Gray-300 */
+  font-size: 0.95em;
+}
+
+.thinking-toggle {
+  font-size: 0.85em;
+  color: #9ca3af; /* Gray-400 */
+}
+
+.thinking-content {
+  padding: 15px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #9ca3af; /* Gray-400 */
+  white-space: pre-wrap;
+  word-break: break-word; /* Prevent overflow */
+  background-color: rgba(0, 0, 0, 0.2);
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Custom scrollbar for thinking content */
+.thinking-content::-webkit-scrollbar {
+  width: 6px;
+}
+.thinking-content::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+.thinking-content::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .cursor {

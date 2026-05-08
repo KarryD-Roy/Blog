@@ -239,7 +239,10 @@
 import { computed, onMounted, onActivated, ref, reactive, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
-import MarkdownIt from 'markdown-it';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark.css';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import { Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -273,10 +276,25 @@ const form = reactive({
 const fileInput = ref(null);
 const uploadType = ref('image');
 
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  breaks: true
+const renderer = new marked.Renderer();
+renderer.code = (code, infostring) => {
+  const lang = (infostring || '').match(/\S+/)?.[0];
+  let highlighted = '';
+
+  if (lang && hljs.getLanguage(lang)) {
+    highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
+  } else {
+    highlighted = hljs.highlightAuto(code).value;
+  }
+
+  const langClass = lang ? `language-${lang}` : 'language-plaintext';
+  return `<pre class="hljs"><code class="${langClass}">${highlighted}</code></pre>`;
+};
+
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+  renderer
 });
 
 const previewHtml = computed(() => {
@@ -285,7 +303,8 @@ const previewHtml = computed(() => {
   if (raw.startsWith('<')) {
     return raw;
   }
-  return md.render(raw);
+  const rawHtml = marked.parse(raw);
+  return DOMPurify.sanitize(rawHtml, { ADD_ATTR: ['class'] });
 });
 
 const fetchPosts = async () => {
@@ -333,6 +352,7 @@ watch(
   (newName) => {
     if (newName === 'home') {
       fetchPosts();
+      checkDraftContent();
     }
   }
 );
@@ -504,10 +524,20 @@ const fetchHotNews = async () => {
   }
 };
 
+const checkDraftContent = () => {
+  const draft = sessionStorage.getItem('ai_draft_content');
+  if (draft) {
+    sessionStorage.removeItem('ai_draft_content');
+    openCreate();
+    form.content = draft;
+  }
+};
+
 onMounted(() => {
   fetchPosts();
   fetchCategories();
   fetchHotNews();
+  checkDraftContent();
 });
 
 onActivated(() => {
