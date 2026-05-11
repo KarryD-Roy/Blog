@@ -151,4 +151,16 @@ public class AiServiceImpl implements AiService {
                 .toBodilessEntity()
                 .subscribe();
     }
+
+    @Override
+    public void deleteArticle(Long articleId) {
+        webClient.delete()
+                .uri(aiServiceUrl + "/delete/" + articleId)
+                .retrieve()
+                .toBodilessEntity()
+                .subscribe(
+                    result -> {},
+                    error -> error.printStackTrace()
+                );
+    }
 }

@@ -184,6 +184,13 @@ public class PostController {
     public ApiResponse<Void> delete(@PathVariable Long id) {
         postService.removeById(id);
         postSearchService.delete(id);
+        // Asynchronously remove from Vector DB
+        try {
+            aiService.deleteArticle(id);
+        } catch (Exception e) {
+            // Log but don't fail the request
+            e.printStackTrace();
+        }
         return ApiResponse.ok(null);
     }
 

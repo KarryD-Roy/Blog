@@ -497,6 +497,14 @@ async def recommend(request: RecommendationRequest):
     recommendations = search_recommendations(request.query)
     return {"recommendations": recommendations}
 
+@app.delete("/api/ai/delete/{article_id}")
+async def delete_article(article_id: str):
+    """
+    Remove all vector chunks for the given article from the vector database.
+    """
+    rag_service.delete_document(article_id)
+    return {"status": "success", "message": f"Article {article_id} deleted from vector store."}
+
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
