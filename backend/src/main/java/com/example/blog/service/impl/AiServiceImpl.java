@@ -128,6 +128,22 @@ public class AiServiceImpl implements AiService {
         }
     }
 
+    private String resolveIngestContent(Post post) {
+        if (post == null) {
+            return "";
+        }
+        String content = post.getContent();
+        if (content != null && !content.trim().isEmpty()) {
+            return content;
+        }
+        String summary = post.getSummary();
+        if (summary != null && !summary.trim().isEmpty()) {
+            return summary;
+        }
+        String title = post.getTitle();
+        return title == null ? "" : title;
+    }
+
     @Override
     public void ingestArticle(Long articleId) {
         Post post = postService.getById(articleId);
@@ -136,7 +152,7 @@ public class AiServiceImpl implements AiService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("article_id", articleId.toString());
         requestBody.put("title", post.getTitle());
-        requestBody.put("content", post.getContent());
+        requestBody.put("content", resolveIngestContent(post));
         if (post.getTags() != null) {
             requestBody.put("tags", Arrays.asList(post.getTags().split(",")));
         } else {
@@ -150,5 +166,40 @@ public class AiServiceImpl implements AiService {
                 .retrieve()
                 .toBodilessEntity()
                 .subscribe();
+    }
+
+    @Override
+    public Map<String, Object> ingestAllArticles() {
+        List<Post> posts = postService.list();
+        List<Map<String, Object>> articles = posts.stream()
+                .map(post -> {
+                    Map<String, Object> article = new HashMap<>();
+                    article.put("article_id", post.getId().toString());
+                    article.put("title", post.getTitle());
+                    article.put("content", resolveIngestContent(post));
+                    if (post.getTags() != null) {
+                        article.put("tags", Arrays.asList(post.getTags().split(",")));
+                    } else {
+                        article.put("tags", List.of());
+                    }
+                    return article;
+                })
+                .toList();
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("articles", articles);
+
+        try {
+            return webClient.post()
+                    .uri(aiServiceUrl + "/ingest/bulk")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Map.of("error", "AI Service unavailable");
+        }
     }
 }

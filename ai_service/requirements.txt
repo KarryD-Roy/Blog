@@ -11,3 +11,4 @@ python-dotenv
 dashscope
 httpx
 sse-starlette
+langchain-chroma

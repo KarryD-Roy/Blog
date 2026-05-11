@@ -9,4 +9,5 @@ public interface AiService {
     SseEmitter generateDraft(List<String> materials, String style);
     Map<String, Object> getRecommendations(String query);
     void ingestArticle(Long articleId);
+    Map<String, Object> ingestAllArticles();
 }

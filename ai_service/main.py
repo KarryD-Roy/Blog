@@ -41,6 +41,9 @@ class IngestRequest(BaseModel):
     content: str
     tags: Optional[List[str]] = []
 
+class BulkIngestRequest(BaseModel):
+    articles: List[IngestRequest]
+
 import sys
 import os
 
@@ -412,32 +415,36 @@ const example = 'code'
 
 
 def search_recommendations(query: str):
-    results = rag_service.search(query, k=3)
-    recommendations = []
+    if not rag_service.is_ready():
+        return {
+            "explanation": "RAG 未启用，请检查 DASHSCOPE_API_KEY 与向量库配置。",
+            "related_chunks": [],
+            "error": "rag_not_ready"
+        }
+
+    results_with_score = rag_service.search_with_score(query, k=3)
 
     # Extract titles and reasons
-    # Note: RAG results are raw chunks. We need to parse metadata or use LLM to synthesize recommendation.
-    # For now, let's just return the chunks and ask LLM to explain why they are relevant.
+    if not results_with_score:
+        return {
+            "explanation": "未检索到匹配文章，请先导入文章到知识库。",
+            "related_chunks": []
+        }
 
-    if not results:
-        return []
+    context_str = "\n".join([f"Article: {doc.metadata.get('title', 'Unknown')}\nContent: {doc.page_content[:200]}..." for doc, score in results_with_score])
 
-    context_str = "\n".join([f"Article: {doc.metadata.get('title', 'Unknown')}\nContent: {doc.page_content[:200]}..." for doc in results])
-
-    prompt = f"Based on the following search results for query '{query}', recommend top articles and explain why:\n\n{context_str}"
+    prompt = f"Based on the following search results for query '{query}', recommend top articles and explain why in professional Chinese:\n\n{context_str}"
     explanation = model_service.generate_response(prompt)
-    # 保持原始Markdown格式，不做格式化
-    # explanation = format_ai_response(explanation)
 
-    # Ideally return structured JSON, but for now returning text explanation + proper results structure
     return {
         "explanation": explanation,
         "related_chunks": [
              {
                  "content": doc.page_content,
-                 "metadata": doc.metadata
+                 "metadata": doc.metadata,
+                 "score": score
              }
-             for doc in results
+             for doc, score in results_with_score
         ]
     }
 
@@ -448,19 +455,78 @@ async def ingest_article(request: IngestRequest):
     """
     Ingest a new article into the vector database.
     """
+    if not rag_service.is_ready():
+        raise HTTPException(status_code=503, detail="RAG not ready. Check DASHSCOPE_API_KEY.")
+
     metadata = {
         "article_id": request.article_id,
         "title": request.title,
         "tags": ",".join(request.tags)
     }
-    rag_service.add_document(request.content, metadata)
+    try:
+        rag_service.add_document(request.content, metadata)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
     return {"status": "success", "message": f"Article {request.article_id} ingested."}
+
+@app.post("/api/ai/ingest/bulk")
+async def ingest_articles_bulk(request: BulkIngestRequest):
+    """
+    Ingest multiple articles into the vector database.
+    """
+    if not rag_service.is_ready():
+        raise HTTPException(status_code=503, detail="RAG not ready. Check DASHSCOPE_API_KEY.")
+
+    ingested = 0
+    skipped = 0
+    errors = []
+    for article in request.articles:
+        if not article.content or not article.content.strip():
+            skipped += 1
+            continue
+        metadata = {
+            "article_id": article.article_id,
+            "title": article.title,
+            "tags": ",".join(article.tags)
+        }
+        try:
+            added = rag_service.add_document(article.content, metadata)
+            if added > 0:
+                ingested += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors.append({"article_id": article.article_id, "error": str(exc)})
+
+    return {"status": "success", "ingested": ingested, "skipped": skipped, "errors": errors}
+
+@app.get("/api/ai/rag/status")
+async def rag_status():
+    """
+    Report RAG status for diagnostics.
+    """
+    peek = rag_service.peek_documents(1)
+    return {
+        "ready": rag_service.is_ready(),
+        "persist_directory": rag_service.persist_directory,
+        "collection_name": rag_service.collection_name,
+        "document_count": rag_service.count_documents(),
+        "embedding": rag_service.test_embedding(),
+        "fresh_collection": rag_service.fresh_collection_info(),
+        "peek": {
+            "ids": peek.get("ids", []),
+            "metadatas": peek.get("metadatas", [])
+        }
+    }
 
 @app.post("/api/ai/search")
 async def search_articles(request: RecommendationRequest):
     """
     Search for articles using vector similarity.
     """
+    if not rag_service.is_ready():
+        raise HTTPException(status_code=503, detail="RAG not ready. Check DASHSCOPE_API_KEY.")
+
     results = rag_service.search(request.query, k=5)
     return {
         "results": [

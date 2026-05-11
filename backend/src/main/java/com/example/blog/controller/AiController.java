@@ -34,4 +34,10 @@ public class AiController {
         Map<String, Object> recommendations = aiService.getRecommendations(query);
         return ResponseEntity.ok(ApiResponse.ok(recommendations));
     }
+
+    @PostMapping("/ingest/all")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> ingestAll() {
+        Map<String, Object> result = aiService.ingestAllArticles();
+        return ResponseEntity.ok(ApiResponse.ok(result));
+    }
 }
