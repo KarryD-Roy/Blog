@@ -17,13 +17,20 @@
         <div class="controls">
           <div class="control-group">
             <label>写作风格:</label>
-            <select v-model="style">
-              <option value="technical">技术硬核 (Technical)</option>
-              <option value="tutorial">教程指南 (Tutorial)</option>
-              <option value="storytelling">叙事风格 (Storytelling)</option>
-              <option value="academic">学术严谨 (Academic)</option>
-              <option value="casual">轻松随笔 (Casual)</option>
-            </select>
+            <div class="custom-select-wrapper" ref="selectWrapper">
+              <div class="custom-select" :class="{ open: isSelectOpen }" @click="isSelectOpen = !isSelectOpen">
+                {{ currentStyleLabel }}
+              </div>
+              <div class="custom-options" v-show="isSelectOpen">
+                <div class="custom-option"
+                     v-for="opt in styleOptions"
+                     :key="opt.value"
+                     :class="{ active: style === opt.value }"
+                     @click="selectStyle(opt.value)">
+                  {{ opt.label }}
+                </div>
+              </div>
+            </div>
           </div>
           <button class="btn primary" @click="generateDraft" :disabled="loading || !materials.trim()">
             {{ loading ? '深度思考中...' : '✨ 生成草稿' }}
@@ -68,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 // Import the custom directive
 import vRenderMarkdown from '../directives/vRenderMarkdown';
@@ -82,6 +89,41 @@ const totalTime = ref('');
 const loading = ref(false);
 const isMaximized = ref(false);
 
+// Custom select logic
+const isSelectOpen = ref(false);
+const selectWrapper = ref(null);
+
+const styleOptions = [
+  { value: 'technical', label: '技术硬核 (Technical)' },
+  { value: 'tutorial', label: '教程指南 (Tutorial)' },
+  { value: 'storytelling', label: '叙事风格 (Storytelling)' },
+  { value: 'academic', label: '学术严谨 (Academic)' },
+  { value: 'casual', label: '轻松随笔 (Casual)' }
+];
+
+const currentStyleLabel = computed(() => {
+  const opt = styleOptions.find(o => o.value === style.value);
+  return opt ? opt.label : '选择风格';
+});
+
+const selectStyle = (value) => {
+  style.value = value;
+  isSelectOpen.value = false;
+};
+
+const handleClickOutside = (event) => {
+  if (selectWrapper.value && !selectWrapper.value.contains(event.target)) {
+    isSelectOpen.value = false;
+  }
+};
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 
 // 提取思考过程和正文
 const extractThinkAndMain = (text) => {
@@ -360,7 +402,12 @@ textarea#materials:focus {
     flex-grow: 1;
 }
 
-select {
+.custom-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.custom-select {
   width: 100%;
   padding: 0.8rem;
   background-color: rgba(15, 23, 42, 0.8);
@@ -371,17 +418,56 @@ select {
   transition: all 0.2s;
   outline: none;
   cursor: pointer;
-  appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.7rem center;
   background-size: 1rem;
   padding-right: 2.5rem;
+  box-sizing: border-box;
+  text-align: left;
 }
 
-select:focus {
+.custom-select:hover, .custom-select.open {
   border-color: #38bdf8;
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
+.custom-options {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: 100%;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  z-index: 10;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.custom-option {
+  padding: 0.8rem 1rem;
+  color: #e5e7eb;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.custom-option:hover {
+  background-color: rgba(56, 189, 248, 0.15);
+  color: #e0f2fe;
+}
+
+.custom-option.active {
+  background-color: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  font-weight: 600;
 }
 
 .btn {
