@@ -9,8 +9,9 @@ load_dotenv()
 class ModelService:
     def __init__(self):
         self.api_key = os.getenv("DASHSCOPE_API_KEY")
-        self.default_model = os.getenv("DEFAULT_MODEL", "qwen-turbo")
+        self.default_model = os.getenv("DEFAULT_MODEL", "qwen-max")
         self.alias_map = {
+            "qwen-turbo": "qwen-max",
             "qwen-3.5-plus": "qwen-plus",
             "qwen3.5-plus": "qwen-plus",
             "qwen-3.5": "qwen-plus",

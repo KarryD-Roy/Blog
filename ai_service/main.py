@@ -431,10 +431,22 @@ def search_recommendations(query: str):
             "related_chunks": []
         }
 
-    context_str = "\n".join([f"Article: {doc.metadata.get('title', 'Unknown')}\nContent: {doc.page_content[:200]}..." for doc, score in results_with_score])
+    context_str = "\n".join([f"Article ID: {doc.metadata.get('article_id', 'Unknown')}\nTitle: {doc.metadata.get('title', 'Unknown')}\nContent: {doc.page_content[:300]}..." for doc, score in results_with_score])
 
-    prompt = f"Based on the following search results for query '{query}', recommend top articles and explain why in professional Chinese:\n\n{context_str}"
+    prompt = (
+        f"Query: {query}\n\n"
+        "Search Results:\n"
+        f"{context_str}\n\n"
+        "Instructions:\n"
+        "1. Strictly judge if each article is DIRECTLY related to the query. For example, if the query is 'MySQL', do NOT include articles exclusively about 'Redis'.\n"
+        "2. Only recommend articles that have a clear relevance. If no results are highly relevant, say 'No highly relevant articles found'.\n"
+        "3. Provide the explanation in professional Chinese."
+    )
     explanation = model_service.generate_response(prompt)
+
+    # Filter chips based on a stricter logic if needed, but here we trust the prompt for now
+    # We can also add a score threshold here
+    threshold = 0.4 # Adjust based on embedding model performance
 
     return {
         "explanation": explanation,
@@ -442,9 +454,9 @@ def search_recommendations(query: str):
              {
                  "content": doc.page_content,
                  "metadata": doc.metadata,
-                 "score": score
+                 "score": float(score)
              }
-             for doc, score in results_with_score
+             for doc, score in results_with_score if score < threshold # Lower score in Chroma similarity_search_with_score means higher similarity
         ]
     }
 

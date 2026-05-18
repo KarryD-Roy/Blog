@@ -4,7 +4,7 @@
       <div class="logo">Karry 的技术博客</div>
       <nav class="nav">
         <RouterLink to="/">首页</RouterLink>
-        <RouterLink to="/skills">技能图谱</RouterLink>
+        <RouterLink to="/skills">技能树</RouterLink>
         <RouterLink to="/statistics">数据统计</RouterLink>
         <RouterLink to="/search">搜索</RouterLink>
         <div class="dropdown">

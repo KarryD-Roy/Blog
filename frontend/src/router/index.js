@@ -7,6 +7,7 @@ import PostList from '../views/PostList.vue';
 import Statistics from '../views/Statistics.vue';
 import AiWriter from '../views/AiWriter.vue';
 import AiRecommendation from '../views/AiRecommendation.vue';
+import TheoryDetail from '../views/TheoryDetail.vue';
 
 const routes = [
   { path: '/', name: 'home', component: Home },
@@ -16,7 +17,8 @@ const routes = [
   { path: '/posts', name: 'post-list', component: PostList },
   { path: '/statistics', name: 'statistics', component: Statistics },
   { path: '/ai/writer', name: 'ai-writer', component: AiWriter },
-  { path: '/ai/recommendation', name: 'ai-recommendation', component: AiRecommendation }
+  { path: '/ai/recommendation', name: 'ai-recommendation', component: AiRecommendation },
+  { path: '/theory/:skillId', name: 'theory-detail', component: TheoryDetail }
 ];
 
 const router = createRouter({

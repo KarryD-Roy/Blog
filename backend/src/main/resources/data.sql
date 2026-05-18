@@ -5,17 +5,17 @@ INSERT INTO hot_news (title, url, image_url, source, publish_date) VALUES
 ('Vite 6.0 Roadmap 公布', 'https://vitejs.dev/blog/', 'https://picsum.photos/seed/vite/800/420', 'Vite', NOW()),
 ('Spring Boot 3.3.5 发布', 'https://spring.io/blog', 'https://picsum.photos/seed/spring/800/420', 'Spring', NOW());
 
-INSERT INTO skills (category, title, description, pinned) VALUES
-('编程语言与基础能力', 'Java 及面向对象基础', '熟练掌握 Java 语言，深入理解面向对象编程、异常处理、集合框架、并发编程；熟悉常见数据结构及算法；了解常用设计模式，如工厂、责任链、策略等。', 1),
-('主流开发框架', 'Spring 生态与微服务', '熟练使用 Spring Boot，熟悉 Spring Cloud 及相关组件如 Nacos、OpenFeign、Gateway 等，实现服务注册、调用与网关路由；熟练使用 MyBatis/MyBatis-Plus 实现 ORM 映射，熟悉 Lambda 查询、分页插件、逻辑删除等高效特性；理解 AOP 面向切面编程思想，能基于注解实现日志记录、权限校验、性能埋点等横切关注点。', 1),
-('AI 与智能体开发', 'LangChain 与 RAG', '初步掌握 LangChain 框架，了解核心组件如 Chains、Agents、Tools、Memory 的基本用法；了解检索增强生成（RAG），熟悉 Spring AI 基础用法，熟悉对接大模型调用、Prompt 模板管理及函数调用的封装；熟悉提示词工程，包括指令提示、上下文注入、少样本示例等常用技巧；熟悉 Agent 常见应用场景，如文档问答机器人、知识库对话与上下文管理等。', 0),
-('数据库与存储技术', 'MySQL/SQL Server/Oracle', '熟悉 MySQL、SQL Server、Oracle 等关系型数据库，具备 SQL 调优经验，包括执行计划分析、索引优化、慢查询处理、主从复制部署；了解分布式表方案；熟悉 Redis 缓存技术，包括常用数据结构、缓存穿透/击穿/雪崩防护，主从+哨兵架构、分片集群等；熟悉 Elasticsearch，实现全文检索、高亮显示及简易聚合分析等。', 0),
-('中间件与消息系统', 'RabbitMQ/ActiveMQ/Redis 消息', '熟悉 RabbitMQ、ActiveMQ，如 Exchange 类型、死信队列、Confirm 机制，用于系统解耦与异步处理；熟练部署与配置 Redis，支持集群模式与持久化策略；熟练使用 Postman、Apifox 等进行接口调试、自动化测试与文档协作。', 0),
-('系统与运维能力', 'Linux 运维与容器化', '熟悉 Linux/Unix 常用命令，能够独立完成服务部署，已对排查线上性能波动；熟练使用 Docker 构建镜像、编排容器，完成 MySQL、Redis、Nginx 等中间件的本地化部署。', 0),
-('前端与工程化', 'Vue3 / Vite', '熟练使用 Vue 3 组合式 API、Pinia 状态管理、Vue Router；熟悉 Vite 构建与前端工程化；了解 TypeScript 与常见 UI 组件库。', 0),
-('测试与质量保障', '单元测试与接口测试', '熟练使用 JUnit 5、Mockito 编写单元测试；熟悉 Postman、Apifox 做接口测试与自动化；了解 JMeter 做简单压测。', 0),
-('架构与设计', '分布式与高可用', '了解微服务拆分、服务治理与分布式事务；熟悉常见高可用方案如限流、熔断、降级；具备一定的系统设计能力。', 0),
-('开发工具链', 'Git / IDEA / 协作', '熟练使用 Git 分支策略、Code Review 与 CI/CD 流水线；熟练使用 IntelliJ IDEA 等开发工具提升效率。', 0);
+INSERT INTO skills (category, title, description, pinned, parent_id, x_axis, y_axis, version) VALUES
+('编程语言与基础能力', 'Java 及面向对象基础', '### 核心理论\n熟练掌握 Java 语言，深入理解面向对象编程、异常处理、集合框架、并发编程；熟悉常见数据结构及算法；了解常用设计模式，如工厂、责任链、策略等。\n\n### 常见面试题\n1. **说说你对 OOP 的理解？**\n2. **ArrayList 和 LinkedList 的区别是什么？**\n3. **谈谈 Java 中的 `synchronized` 关键字。**', 1, NULL, NULL, NULL, 0),
+('主流开发框架', 'Spring 生态与微服务', '### 核心理论\n熟练使用 Spring Boot，熟悉 Spring Cloud 及相关组件如 Nacos、OpenFeign、Gateway 等；熟练使用 MyBatis/MyBatis-Plus 实现 ORM 映射；理解 AOP 面向切面编程思想。\n\n### 常见面试题\n1. **Spring 中 Bean 的生命周期是怎样的？**\n2. **解释一下 Spring AOP 的底层实现原理。**\n3. **什么是微服务中的服务熔断与降级？**', 1, NULL, NULL, NULL, 0),
+('AI 与智能体开发', 'LangChain 与 RAG', '### 核心理论\n掌握 LangChain 框架，了解 RAG (检索增强生成) 与 Spring AI，熟悉提示词工程，包括指令提示与上下文注入。\n\n### 常见面试题\n1. **简述 RAG (Retrieval-Augmented Generation) 的核心流程。**\n2. **什么是 LangChain 中的 Agent 机制？**\n3. **如何解决大模型生成时的“幻觉”问题？**', 0, NULL, NULL, NULL, 0),
+('数据库与存储技术', 'MySQL/SQL Server/Oracle', '### 核心理论\n熟悉关系型数据库，具备 SQL 调优经验、索引优化、慢查询处理；熟悉 Redis 缓存机制；熟悉 Elasticsearch 全文检索。\n\n### 常见面试题\n1. **描述 MySQL 索引的最左匹配原则。**\n2. **讲讲 Redis 常见的缓存击穿、穿透与雪崩问题及解决思路。**\n3. **Elasticsearch 倒排索引的原理是什么？**', 0, NULL, NULL, NULL, 0),
+('中间件与消息系统', 'RabbitMQ/ActiveMQ/Redis 消息', '### 核心理论\n熟悉 RabbitMQ、ActiveMQ，用于系统解耦与异步处理；熟练部署与配置 Redis，支持集群模式与持久化策略。\n\n### 常见面试题\n1. **如何保证消息队列的消息不丢失？**\n2. **解释 RabbitMQ 的死信队列。**', 0, NULL, NULL, NULL, 0),
+('系统与运维能力', 'Linux 运维与容器化', '### 核心理论\n熟悉 Linux 常用命令；熟练使用 Docker 构建镜像、编排容器，完成 MySQL、Redis、Nginx 等中间件部署。\n\n### 常见面试题\n1. **简述 Docker 的核心资源隔离技术。**\n2. **常用排查线上系统 CPU 飙高的 Linux 命令有哪些？**', 0, NULL, NULL, NULL, 0),
+('前端与工程化', 'Vue3 / Vite', '### 核心理论\n熟练使用 Vue 3 组合式 API、Pinia 状态管理、Vue Router；熟悉 Vite 构建与前端工程化。\n\n### 常见面试题\n1. **Vue 3 的响应式原理 (Proxy) 相比 Vue 2 有何提升？**\n2. **简述 Pinia 的核心概念。**', 0, NULL, NULL, NULL, 0),
+('测试与质量保障', '单元测试与接口测试', '### 核心理论\n熟练使用 JUnit 5、Mockito 编写单元测试；熟悉 Postman、Apifox 做接口测试；了解 JMeter 做压测。\n\n### 常见面试题\n1. **什么是 Mock 测试？它解决了什么问题？**\n2. **你在项目中是如何进行单元测试覆盖率检查的？**', 0, NULL, NULL, NULL, 0),
+('架构与设计', '分布式与高可用', '### 核心理论\n了解微服务拆分、服务治理与分布式事务；熟悉常见高可用方案如限流、熔断、降级。\n\n### 常见面试题\n1. **谈谈著名的 CAP 定理。**\n2. **常见分布式锁的实现方案有哪些？**', 0, NULL, NULL, NULL, 0),
+('开发工具链', 'Git / IDEA / 协作', '### 核心理论\n熟练使用 Git 分支策略、Code Review 与 CI/CD 流水线。\n\n### 常见面试题\n1. **`git merge` 与 `git rebase` 有什么区别？**\n2. **你如何理解和实践 CI/CD 流程？**', 0, NULL, NULL, NULL, 0);
 
 INSERT INTO categories (name, description) VALUES
 ('后端开发', '所有与 Java、Spring 生态和服务端相关的技术文章'),
@@ -50,3 +50,15 @@ INSERT INTO posts (title, summary, content, category_id, tags, view_count, pinne
 ('K8s 入门：Pod 与 Deployment', '在 Kubernetes 中部署无状态应用。', 'Pod、Deployment、Service 基本概念与 YAML 配置，为博客容器化部署做准备。', 4, 'Kubernetes,容器,运维', 3, 0, DATE_SUB(NOW(), INTERVAL 18 DAY), DATE_SUB(NOW(), INTERVAL 18 DAY)),
 ('设计模式：工厂与策略模式', '常用设计模式在业务代码中的运用。', '简单工厂、工厂方法、抽象工厂与策略模式，减少 if-else 并提高可扩展性。', 1, '设计模式,Java,架构', 7, 0, DATE_SUB(NOW(), INTERVAL 19 DAY), DATE_SUB(NOW(), INTERVAL 19 DAY)),
 ('Spring AI 接入 OpenAI 与国产大模型', '统一接口调用多模型。', 'Spring AI 的 ChatClient、Embedding 与国产模型适配，实现可切换的 LLM 调用层。', 2, 'Spring AI,大模型,AI', 11, 0, DATE_SUB(NOW(), INTERVAL 20 DAY), DATE_SUB(NOW(), INTERVAL 20 DAY));
+
+INSERT INTO post_skill_relation (post_id, skill_id) VALUES
+(1, 2),
+(2, 4),
+(3, 3),
+(4, 6),
+(5, 4),
+(6, 2),
+(7, 3),
+(8, 6),
+(9, 2),
+(10, 4);

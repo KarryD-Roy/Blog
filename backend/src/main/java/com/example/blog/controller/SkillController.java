@@ -3,6 +3,9 @@ package com.example.blog.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.example.blog.dto.SkillCoordUpdate;
+import com.example.blog.dto.SkillGraphResponse;
+import com.example.blog.entity.Post;
 import com.example.blog.entity.Skill;
 import com.example.blog.service.SkillService;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +29,15 @@ public class SkillController {
     }
 
     /**
-     * 技能分页接口，技能图谱页面使用
+     * 技能树数据
+     */
+    @GetMapping("/graph")
+    public ApiResponse<SkillGraphResponse> graph() {
+        return ApiResponse.ok(skillService.getSkillGraph());
+    }
+
+    /**
+     * 技能分页接口，技能树页面使用
      */
     @GetMapping("/page")
     public ApiResponse<IPage<Skill>> page(
@@ -36,6 +47,29 @@ public class SkillController {
         wrapper.orderByDesc(Skill::getPinned).orderByAsc(Skill::getId);
         IPage<Skill> result = skillService.page(Page.of(page, size), wrapper);
         return ApiResponse.ok(result);
+    }
+
+    /**
+     * 获取技能关联文章列表
+     */
+    @GetMapping("/{id}/posts")
+    public ApiResponse<IPage<Post>> postsBySkill(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "6") long size) {
+        return ApiResponse.ok(skillService.listPostsBySkill(id, page, size));
+    }
+
+    /**
+     * 批量保存技能坐标
+     */
+    @PutMapping("/coords")
+    public ApiResponse<Void> updateCoords(@RequestBody List<SkillCoordUpdate> updates) {
+        boolean updated = skillService.updateSkillCoords(updates);
+        if (!updated) {
+            return ApiResponse.error("坐标保存失败，可能已被其他用户更新");
+        }
+        return ApiResponse.ok(null);
     }
 
     /**
@@ -63,6 +97,12 @@ public class SkillController {
     public ApiResponse<Skill> create(@RequestBody Skill skill) {
         skill.setId(null);
         skillService.save(skill);
+
+        // Asynchronously re-ingest articles or trigger AI to recognize the new node
+        // Actually, ingestArticle usually pushes article TO AI.
+        // For semantic linking, AI service just needs to know about articles.
+        // When we call getRecommendations later, it uses the existing vector DB.
+
         return ApiResponse.ok(skill);
     }
 
