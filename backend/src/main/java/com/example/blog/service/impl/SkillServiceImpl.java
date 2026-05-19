@@ -13,8 +13,8 @@ import com.example.blog.entity.Skill;
 import com.example.blog.mapper.PostMapper;
 import com.example.blog.mapper.PostSkillRelationMapper;
 import com.example.blog.mapper.SkillMapper;
-import com.example.blog.service.AiService;
 import com.example.blog.service.SkillService;
+import com.example.blog.search.PostSearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -38,7 +38,7 @@ public class SkillServiceImpl extends ServiceImpl<SkillMapper, Skill> implements
     private final StringRedisTemplate stringRedisTemplate;
     private final PostSkillRelationMapper postSkillRelationMapper;
     private final PostMapper postMapper;
-    private final AiService aiService;
+    private final PostSearchService postSearchService;
 
     @Override
     public void recordVisitedSkill(Long skillId) {
@@ -116,26 +116,28 @@ public class SkillServiceImpl extends ServiceImpl<SkillMapper, Skill> implements
 
         List<Long> dbPostIds = relations.stream().map(PostSkillRelation::getPostId).toList();
 
-        // 2. Second path: AI Recommendations (Semantic)
-        // If we don't have enough DB relations, or always want to mix, we call AI
-        Map<String, Object> aiResult = aiService.getRecommendations(skill.getTitle());
-        List<Map<String, Object>> relatedChunks = (List<Map<String, Object>>) aiResult.getOrDefault("related_chunks", List.of());
-
-        List<Long> aiPostIds = relatedChunks.stream()
-                .map(chunk -> {
-                    Map<String, Object> metadata = (Map<String, Object>) chunk.get("metadata");
-                    Object id = metadata.get("article_id");
-                    return id != null ? Long.valueOf(id.toString()) : null;
-                })
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
+        // 2. Second path: Elasticsearch / Text Match Search
+        List<Long> searchPostIds = new ArrayList<>();
+        if (postSearchService.isEnabled()) {
+            IPage<Post> searchResult = postSearchService.search(1, 20, skill.getTitle(), null, null);
+            if (searchResult != null && searchResult.getRecords() != null) {
+                searchPostIds = searchResult.getRecords().stream().map(Post::getId).toList();
+            }
+        } else {
+            // Fallback to basic DB keyword search if ES is disabled
+            LambdaQueryWrapper<Post> fallbackWrapper = new LambdaQueryWrapper<>();
+            fallbackWrapper.like(Post::getTitle, skill.getTitle()).or().like(Post::getSummary, skill.getTitle());
+            Page<Post> fallbackPage = postMapper.selectPage(Page.of(1, 20), fallbackWrapper);
+            if (fallbackPage != null && fallbackPage.getRecords() != null) {
+                searchPostIds = fallbackPage.getRecords().stream().map(Post::getId).toList();
+            }
+        }
 
         // Combine IDs, keeping DB relations first as they are more "official"
         List<Long> combinedIds = new ArrayList<>(dbPostIds);
-        for (Long aiId : aiPostIds) {
-            if (!combinedIds.contains(aiId)) {
-                combinedIds.add(aiId);
+        for (Long sid : searchPostIds) {
+            if (!combinedIds.contains(sid)) {
+                combinedIds.add(sid);
             }
         }
 

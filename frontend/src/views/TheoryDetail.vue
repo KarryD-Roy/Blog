@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="theory-header">
-      <button class="btn ghost" @click="goBack">&larr; 返回技能树</button>
+      <button class="btn ghost back-btn" @click="goBack">&larr; 返回技能树</button>
       <h1 class="page-title">理论知识与面试题: {{ skill?.title }}</h1>
     </div>
 
@@ -112,36 +112,100 @@ onMounted(fetchSkillAndTheory);
 
 <style scoped>
 .theory-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 3rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 1rem;
+  border-bottom: 4px solid #333;
+  padding-bottom: 1.5rem;
 }
+
+.back-btn {
+  align-self: flex-start;
+  margin-bottom: 1rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 0;
+  border: 2px solid #333;
+  background: transparent;
+  color: #fafafa;
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: #ccff00;
+  color: #09090b;
+  border-color: #ccff00;
+  transform: translate(-4px, -4px);
+  box-shadow: 4px 4px 0 rgba(255,255,255,0.2);
+}
+
+.page-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 2.5rem;
+  color: #fafafa;
+  margin: 0;
+  text-transform: uppercase;
+}
+
 .theory-card {
-  padding: 2rem;
+  padding: 3rem;
   min-height: 400px;
+  background: #09090b;
+  border: 2px solid #333;
+  border-radius: 0;
+  box-shadow: 12px 12px 0 rgba(204, 255, 0, 0.2);
+  transition: all 0.3s ease;
 }
+
+.theory-card:hover {
+  border-color: #ccff00;
+  transform: translate(-4px, -4px);
+  box-shadow: 16px 16px 0 rgba(204, 255, 0, 0.4);
+}
+
 .theory-content {
-  color: #e5e7eb;
-  line-height: 1.6;
+  color: #fafafa;
+  line-height: 1.8;
+  font-family: 'Manrope', sans-serif;
+  font-size: 1.1rem;
 }
+
 .theory-textarea {
   width: 100%;
-  font-family: monospace;
-  background: #0f172a;
-  color: #e5e7eb;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: transparent;
+  color: #fafafa;
+  padding: 1.5rem;
+  border-radius: 0;
+  margin-bottom: 1.5rem;
+  border: 2px solid #333;
+  resize: vertical;
 }
+
+.theory-textarea:focus {
+  outline: none;
+  border-color: #ccff00;
+  background: #000;
+  box-shadow: 4px 4px 0 rgba(204,255,0,0.2);
+}
+
 .theory-actions {
   margin-top: 2rem;
   display: flex;
+  justify-content: flex-end;
   gap: 1rem;
 }
+
 .editor-help {
-  color: #94a3b8;
-  font-size: 0.85rem;
+  color: #a1a1aa;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
   margin-bottom: 1rem;
+  text-transform: uppercase;
 }
 </style>

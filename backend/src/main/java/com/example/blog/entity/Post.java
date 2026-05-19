@@ -31,8 +31,10 @@ public class Post {
      */
     private Boolean pinned;
 
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private java.util.List<Long> skillIds;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
 }
-

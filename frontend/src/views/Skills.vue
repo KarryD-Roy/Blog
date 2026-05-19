@@ -26,50 +26,67 @@
         <button class="btn ghost" @click="closeDrawer">关闭</button>
       </div>
 
-      <div class="drawer-section">
-        <h3 class="section-title">理论及面试题</h3>
-        <div v-if="selectedSkill?.id" class="drawer-desc">
-          <router-link :to="`/theory/${selectedSkill.id}`" class="theory-link">
-            查看该技能的理论知识与面试题汇总 &rarr;
-          </router-link>
-        </div>
-        <div v-else class="empty-hint" style="margin-top: 0">暂无理论及面试题汇总</div>
-      </div>
-
-      <div class="drawer-section">
-        <h3 class="section-title">关联实战文章</h3>
-        <div v-if="postLoading" class="center-text">加载文章...</div>
-        <div v-else>
-          <div v-if="posts.length" class="post-list">
-            <div v-for="post in posts" :key="post.id" class="post-item">
+      <template v-if="selectedSkill?.isCategory">
+        <div class="drawer-section">
+          <h3 class="section-title">下级节点</h3>
+          <div v-if="selectedSkill.children?.length" class="post-list">
+            <div v-for="child in selectedSkill.children" :key="child.id" class="post-item">
               <div>
-                <div class="post-title" @click="openPost(post.id)">{{ post.title }}</div>
-                <div class="post-summary">{{ post.summary }}</div>
+                <div class="post-title" @click="openDrawer(child)">{{ child.title }}</div>
+                <div class="post-summary">{{ child.description || '无简短说明' }}</div>
               </div>
-              <button class="btn ghost" @click="openPost(post.id)">查看</button>
+              <button class="btn ghost" @click="openDrawer(child)">查看</button>
             </div>
           </div>
-          <div v-else class="empty-hint" style="margin-top: 0">暂无关联文章</div>
+          <div v-else class="empty-hint" style="margin-top: 0">暂无下级节点</div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="drawer-section">
+          <h3 class="section-title">理论及面试题</h3>
+          <div v-if="selectedSkill?.id" class="drawer-desc">
+            <router-link :to="`/theory/${selectedSkill.id}`" class="theory-link">
+              查看该技能的理论知识与面试题汇总 &rarr;
+            </router-link>
+          </div>
+          <div v-else class="empty-hint" style="margin-top: 0">暂无理论及面试题汇总</div>
+        </div>
 
-          <div v-if="postTotalPages > 1" class="pagination">
-            <button :disabled="postPage === 1" @click="changePostPage(postPage - 1)">
-              上一页
-            </button>
-            <span>第 {{ postPage }} / {{ postTotalPages }} 页</span>
-            <button
-              :disabled="postPage === postTotalPages"
-              @click="changePostPage(postPage + 1)"
-            >
-              下一页
-            </button>
+        <div class="drawer-section">
+          <h3 class="section-title">关联实战文章</h3>
+          <div v-if="postLoading" class="center-text">加载文章...</div>
+          <div v-else>
+            <div v-if="posts.length" class="post-list">
+              <div v-for="post in posts" :key="post.id" class="post-item">
+                <div>
+                  <div class="post-title" @click="openPost(post.id)">{{ post.title }}</div>
+                  <div class="post-summary">{{ post.summary }}</div>
+                </div>
+                <button class="btn ghost" @click="openPost(post.id)">查看</button>
+              </div>
+            </div>
+            <div v-else class="empty-hint" style="margin-top: 0">暂无关联文章</div>
+
+            <div v-if="postTotalPages > 1" class="pagination">
+              <button :disabled="postPage === 1" @click="changePostPage(postPage - 1)">
+                上一页
+              </button>
+              <span>第 {{ postPage }} / {{ postTotalPages }} 页</span>
+              <button
+                :disabled="postPage === postTotalPages"
+                @click="changePostPage(postPage + 1)"
+              >
+                下一页
+              </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="drawer-actions">
-        <button class="btn primary" @click="editSkill">编辑技能</button>
-        <button class="btn danger" @click="deleteSkill">删除技能</button>
-      </div>
+        <div class="drawer-actions">
+          <button class="btn primary" @click="editSkill">编辑技能</button>
+          <button class="btn danger" @click="deleteSkill">删除技能</button>
+        </div>
+      </template>
     </div>
 
     <div v-if="showEditor" class="modal-backdrop">
@@ -275,6 +292,8 @@ const buildGraphOption = () => {
         type: 'graph',
         layout: hasFixedCoords ? 'none' : 'force',
         roam: true,
+        scaleLimit: { min: 0.1, max: 10 },
+        zoom: 0.6,
         data,
         links: links.map((link) => ({
           source: String(link.source),
@@ -319,8 +338,20 @@ const bindChartEvents = () => {
 
   chartInstance.on('click', (params) => {
     if (params.dataType !== 'node') return;
-    // 排除虚拟类别节点
-    if (String(params.data.id).startsWith('cat-')) return;
+
+    // 如果是虚拟类别节点
+    if (String(params.data.id).startsWith('cat-')) {
+      const categoryName = params.data.category;
+      const childSkills = graphNodes.value.filter(s => s.category === categoryName);
+      selectedSkill.value = {
+        isCategory: true,
+        title: categoryName,
+        category: '分类节点',
+        children: childSkills,
+      };
+      drawerOpen.value = true;
+      return;
+    }
 
     const skillId = params.data.skillId;
     const skill = graphSkills.value.get(skillId);
@@ -550,28 +581,33 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 1.2rem;
-  margin-bottom: 1.2rem;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 4px solid #333;
+  padding-bottom: 1.5rem;
 }
 
 .subtitle {
-  margin: 0.4rem 0 0;
-  color: #94a3b8;
+  margin: 0.5rem 0 0;
+  color: #a1a1aa;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.9rem;
+  text-transform: uppercase;
 }
 
 .header-actions {
   display: flex;
-  gap: 0.6rem;
+  gap: 1rem;
 }
 
 .graph-card {
-  background: radial-gradient(circle at top left, #1e293b, #020617);
-  border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  padding: 1rem;
+  background: #09090b;
+  border-radius: 0;
+  border: 2px solid #333;
+  padding: 1.5rem;
   min-height: 720px;
   position: relative;
+  box-shadow: 12px 12px 0 rgba(204, 255, 0, 0.2);
 }
 
 .graph-canvas {
@@ -590,22 +626,24 @@ onBeforeUnmount(() => {
 
 .empty-hint {
   text-align: center;
-  color: #94a3b8;
-  margin-top: 1.4rem;
+  color: #666;
+  margin-top: 2rem;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
 }
 
 .drawer {
   position: fixed;
-  right: 1.5rem;
-  top: 6.5rem;
-  width: 360px;
-  max-height: calc(100vh - 9rem);
-  background: rgba(2, 6, 23, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 1rem;
-  padding: 1.2rem;
+  right: 2rem;
+  top: 7rem;
+  width: 400px;
+  max-height: calc(100vh - 10rem);
+  background: #09090b;
+  border: 4px solid #ccff00;
+  border-radius: 0;
+  padding: 2rem;
   overflow-y: auto;
-  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.7);
+  box-shadow: 12px 12px 0 rgba(204, 255, 0, 0.4);
   z-index: 20;
 }
 
@@ -613,76 +651,108 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 0.8rem;
-  margin-bottom: 0.6rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #333;
+  padding-bottom: 1rem;
 }
 
 .drawer-title {
   margin: 0;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #fafafa;
+  text-transform: uppercase;
 }
 
 .drawer-meta {
-  margin: 0.2rem 0 0;
-  color: #94a3b8;
+  margin: 0.5rem 0 0;
+  color: #888;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.85rem;
+  text-transform: uppercase;
 }
 
 .drawer-section {
-  margin-bottom: 1.2rem;
+  margin-bottom: 1.5rem;
 }
 
 .section-title {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #e5e7eb;
-  margin: 0 0 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #ccff00;
+  margin: 0 0 1rem;
+  text-transform: uppercase;
 }
 
 .drawer-desc {
-  color: #cbd5f5;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
+  color: #fafafa;
+  font-family: 'Manrope', sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
 }
 
 .theory-link {
-  color: #38bdf8;
+  color: #ccff00;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: bold;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .theory-link:hover {
-  text-decoration: underline;
+  border-color: #ccff00;
+  background: rgba(204, 255, 0, 0.1);
 }
 
 .post-list {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 1rem;
 }
 
 .post-item {
   display: flex;
   justify-content: space-between;
-  gap: 0.8rem;
-  padding: 0.6rem 0.2rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  gap: 1rem;
+  padding: 1rem;
+  border: 2px solid #333;
+  background: #000;
+  transition: all 0.2s ease;
+}
+
+.post-item:hover {
+  border-color: #ccff00;
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0 rgba(204, 255, 0, 0.2);
 }
 
 .post-title {
-  font-weight: 600;
+  font-weight: 800;
   cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem;
+  color: #fafafa;
 }
 
 .post-summary {
-  color: #94a3b8;
-  font-size: 0.85rem;
-  margin-top: 0.3rem;
+  color: #a1a1aa;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  font-family: 'Manrope', sans-serif;
 }
 
 .drawer-actions {
   display: flex;
-  gap: 0.8rem;
-  margin-top: 1.5rem;
+  gap: 1rem;
+  margin-top: 2rem;
+  border-top: 2px solid #333;
+  padding-top: 1.5rem;
 }
 
 .select-wrapper {
@@ -692,27 +762,27 @@ onBeforeUnmount(() => {
 
 .select-input {
   width: 100%;
-  padding: 0.8rem;
-  background-color: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  border-radius: 0.8rem;
-  color: #e5e7eb;
+  padding: 1rem;
+  background-color: transparent;
+  border: 2px solid #333;
+  border-radius: 0;
+  color: #fafafa;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.95rem;
   transition: all 0.2s;
   outline: none;
   cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23333'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.7rem center;
+  background-position: right 1rem center;
   background-size: 1rem;
-  padding-right: 2.5rem;
+  padding-right: 3rem;
   box-sizing: border-box;
   text-align: left;
 }
 
 .select-input:hover, .select-input.open {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+  border-color: #ccff00;
 }
 
 .select-options {
@@ -720,77 +790,77 @@ onBeforeUnmount(() => {
   top: calc(100% + 0.5rem);
   left: 0;
   width: 100%;
-  background: #1e293b;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  border-radius: 0.8rem;
+  background: #09090b;
+  border: 2px solid #ccff00;
+  border-radius: 0;
   overflow: hidden;
   z-index: 10;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  box-shadow: 4px 4px 0 rgba(204, 255, 0, 0.4);
   box-sizing: border-box;
-  animation: fadeIn 0.15s ease-out;
+  animation: slideIn 0.15s ease-out;
   max-height: 250px;
   overflow-y: auto;
 }
 
-@keyframes fadeIn {
+@keyframes slideIn {
   from { opacity: 0; transform: translateY(-5px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .select-option {
-  padding: 0.8rem 1rem;
-  color: #e5e7eb;
+  padding: 1rem;
+  color: #a1a1aa;
   cursor: pointer;
   transition: all 0.2s;
+  border-bottom: 1px solid #333;
 }
 
+.select-option:last-child { border-bottom: none; }
+
 .select-option:hover {
-  background-color: rgba(56, 189, 248, 0.15);
-  color: #e0f2fe;
+  background-color: #ccff00;
+  color: #09090b;
+  padding-left: 1.5rem;
 }
 
 .btn.danger {
-  background: rgba(239, 68, 68, 0.15);
+  background: transparent;
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-color: #ef4444;
 }
 
 .btn.danger:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: #ef4444;
+  color: #09090b;
+  box-shadow: 4px 4px 0 rgba(239, 68, 68, 0.4);
 }
 
 @media (max-width: 900px) {
-  .skills-header {
-    flex-direction: column;
-  }
-
+  .skills-header { flex-direction: column; }
   .drawer {
     position: static;
     width: 100%;
-    margin-top: 1rem;
+    margin-top: 2rem;
     max-height: none;
   }
 }
 
-/* 滚动条暗黑主题样式 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: #1e293b;
-  border-radius: 4px;
+  background: #09090b;
 }
 ::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
+  background: #333;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #ccff00;
 }
 
 select.input option {
-  background-color: #0f172a;
-  color: #e5e7eb;
+  background-color: #09090b;
+  color: #fafafa;
 }
 </style>

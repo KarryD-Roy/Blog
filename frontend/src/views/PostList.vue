@@ -1,8 +1,9 @@
 <template>
   <div class="page">
+    <button class="back-btn" @click="$router.back()">← 返回</button>
     <h1 class="page-title">文章大全</h1>
 
-    <section class="card" style="cursor: default">
+    <section class="card" style="cursor: default; z-index: 10;">
       <div class="filters">
         <input
           v-model="keyword"

@@ -300,13 +300,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .error-message {
-  background-color: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
+  background-color: transparent;
+  border: 2px solid #ef4444;
+  color: #ef4444;
   padding: 1rem;
   margin: 1rem;
-  border-radius: 0.5rem;
+  border-radius: 0;
   text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  font-weight: bold;
 }
 
 .page {
@@ -326,41 +329,44 @@ onBeforeUnmount(() => {
 .main-column {
   width: 100%;
   flex: 1;
-  background: radial-gradient(circle at top left, #1e293b, #020617);
-  border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.7);
+  background: transparent;
+  border-radius: 0;
+  border: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .main-header {
-  padding: 1.2rem 1.4rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 0 0 1.5rem;
+  margin-bottom: 2rem;
+  background: transparent;
+  border-bottom: 4px solid #333;
 }
 
 .page-title {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #e5e7eb;
+  font-family: 'Syne', sans-serif;
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #fafafa;
+  margin: 0;
+  text-transform: uppercase;
 }
 
 .card {
-  background: radial-gradient(circle at top left, #0b1224, #020617);
-  border-radius: 1rem;
-  padding: 1.6rem;
-  margin: 1rem 0 1.4rem;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.7);
+  background: #09090b;
+  border-radius: 0;
+  padding: 2.5rem;
+  margin: 1rem 0 2rem;
+  border: 2px solid #333;
+  box-shadow: 12px 12px 0 rgba(204, 255, 0, 0.2);
   width: 100%;
 }
 
 .chart-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1.2rem;
+  gap: 2rem;
 }
 
 @media (max-width: 1024px) {
@@ -370,18 +376,28 @@ onBeforeUnmount(() => {
 }
 
 .chart-item {
-  background: rgba(15, 23, 42, 0.75);
-  border-radius: 1rem;
-  padding: 1.6rem 1.8rem 1.4rem;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #000;
+  border-radius: 0;
+  padding: 2rem;
+  border: 2px solid #333;
   min-height: 480px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.chart-item:hover {
+  border-color: #ccff00;
+  transform: translate(-4px, -4px);
+  box-shadow: 8px 8px 0 rgba(204, 255, 0, 0.2);
 }
 
 .chart-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #e5e7eb;
-  margin-bottom: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ccff00;
+  margin-bottom: 1rem;
   text-align: center;
+  text-transform: uppercase;
 }
 </style>

@@ -197,6 +197,31 @@
               </div>
             </transition>
           </div>
+          <div
+            class="custom-select-container"
+            @mouseenter="showSkillDropdown = true"
+            @mouseleave="showSkillDropdown = false"
+          >
+            <div class="input select-trigger">
+              <span>{{ selectedSkillsText }}</span>
+            </div>
+            <transition name="fade">
+              <div v-if="showSkillDropdown" class="select-dropdown" style="max-height: 200px; overflow-y: auto;">
+                <div
+                  v-for="s in skills"
+                  :key="s.id"
+                  class="select-option"
+                  :class="{ selected: form.skillIds.includes(s.id) }"
+                  @click="toggleSkill(s.id)"
+                >
+                  <label style="cursor: pointer;">
+                    <input type="checkbox" :checked="form.skillIds.includes(s.id)" @click.stop="toggleSkill(s.id)" style="margin-right: 0.5rem;" />
+                    {{ s.title }}
+                  </label>
+                </div>
+              </div>
+            </transition>
+          </div>
           <div class="upload-row">
             <input
               ref="fileInput"
@@ -258,19 +283,22 @@ const router = useRouter();
 const route = useRoute();
 const posts = ref([]);
 const categories = ref([]);
+const skills = ref([]);
 const loading = ref(false);
 const page = ref(route.query.page ? parseInt(route.query.page) : 1);
 const totalPages = ref(0);
 
 const showEditor = ref(false);
 const showCategoryDropdown = ref(false); // 控制自定义下拉菜单显示
+const showSkillDropdown = ref(false); // 控制技能多选下拉菜单显示
 const editingPost = ref(null);
 const form = reactive({
   title: '',
   summary: '',
   content: '',
   tags: '',
-  categoryId: null
+  categoryId: null,
+  skillIds: []
 });
 
 const fileInput = ref(null);
@@ -333,6 +361,17 @@ const fetchCategories = async () => {
   }
 };
 
+const fetchSkills = async () => {
+  try {
+    const res = await axios.get('/api/skills');
+    if (res.data.code === 0) {
+      skills.value = res.data.data;
+    }
+  } catch (err) {
+    console.error('获取技能失败', err);
+  }
+};
+
 const changePage = (p) => {
   page.value = p;
   router.push({ query: { ...route.query, page: p } });
@@ -373,6 +412,7 @@ const resetForm = () => {
   form.content = '';
   form.tags = '';
   form.categoryId = null;
+  form.skillIds = [];
 };
 
 const startEdit = (post) => {
@@ -382,6 +422,7 @@ const startEdit = (post) => {
   form.content = post.content || '';
   form.tags = post.tags || '';
   form.categoryId = post.categoryId || null;
+  form.skillIds = post.skillIds || [];
   showEditor.value = true;
 };
 
@@ -398,6 +439,31 @@ const selectCategory = (id) => {
   showCategoryDropdown.value = false;
 };
 
+// 当前选中技能展示文本
+const selectedSkillsText = computed(() => {
+  if (!form.skillIds || form.skillIds.length === 0) return '关联特定技能点（可选）';
+  const selectedNames = form.skillIds
+    .map(id => {
+      const s = skills.value.find(sk => sk.id === id);
+      return s ? s.title : null;
+    })
+    .filter(Boolean);
+  return selectedNames.length > 0 ? selectedNames.join(', ') : '关联特定技能点（可选）';
+});
+
+// 切换技能勾选
+const toggleSkill = (id) => {
+  if (!form.skillIds) {
+    form.skillIds = [];
+  }
+  const idx = form.skillIds.indexOf(id);
+  if (idx > -1) {
+    form.skillIds.splice(idx, 1);
+  } else {
+    form.skillIds.push(id);
+  }
+};
+
 const submitPost = async () => {
   if (!form.title.trim()) {
     return;
@@ -407,7 +473,8 @@ const submitPost = async () => {
     summary: form.summary,
     content: form.content,
     tags: form.tags ? form.tags.replace(/，/g, ',') : '',
-    categoryId: form.categoryId
+    categoryId: form.categoryId,
+    skillIds: form.skillIds
   };
   if (editingPost.value && editingPost.value.id) {
     await axios.put(`/api/posts/${editingPost.value.id}`, payload);
@@ -536,6 +603,7 @@ const checkDraftContent = () => {
 onMounted(() => {
   fetchPosts();
   fetchCategories();
+  fetchSkills();
   fetchHotNews();
   checkDraftContent();
 });
@@ -555,9 +623,9 @@ onActivated(() => {
 .home-layout {
   display: grid;
   grid-template-columns: 320px 1fr;
-  gap: 1.5rem;
+  gap: 2rem;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 1rem 0;
   align-items: start;
@@ -572,115 +640,138 @@ onActivated(() => {
 .left-column {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 2rem;
 }
 
 .hot-news-card {
   width: 100%;
-  background: radial-gradient(circle at top left, #1e293b, #020617);
-  border-radius: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.7);
-  padding: 1rem;
-  color: #e5e7eb;
+  background: #09090b;
+  border-radius: 0;
+  border: 2px solid #333;
+  padding: 2rem;
+  color: #fafafa;
+  box-shadow: 12px 12px 0 rgba(204, 255, 0, 0.2);
 }
 
 .hot-news-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.4rem;
-  margin-bottom: 0.6rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #333;
+  padding-bottom: 1rem;
 }
 
 .hot-news-title {
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.25rem;
+  text-transform: uppercase;
 }
 
 .hot-news-subtitle {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: #888;
+  margin-top: 0.5rem;
+  text-transform: uppercase;
 }
 
 .hot-news-date {
+  font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
-  color: #7dd3fc;
+  color: #ccff00;
+  font-weight: bold;
 }
 
 .hot-news-carousel {
   position: relative;
   overflow: hidden;
+  margin-top: 1rem;
 }
 
 .my-swiper {
   width: 100%;
-  padding-bottom: 30px;
+  padding-bottom: 40px;
 }
 
 .hot-news-slide {
   display: flex;
   flex-direction: column;
-  border-radius: 1rem;
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: #0f172a;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border: 2px solid #333;
+  background: #000;
+  transition: all 0.2s ease;
 }
 
 .hot-news-slide:hover {
-  transform: translateY(-2px);
-  border-color: #38bdf8;
-  box-shadow: 0 16px 36px rgba(8, 47, 73, 0.55);
+  transform: translate(-4px, -4px);
+  border-color: #ccff00;
+  box-shadow: 8px 8px 0 rgba(204, 255, 0, 0.4);
 }
 
 .hot-news-image {
   width: 100%;
-  height: 180px;
+  height: 200px;
   background-size: cover;
   background-position: center;
+  filter: grayscale(100%) contrast(1.2);
+  transition: filter 0.3s ease;
+}
+
+.hot-news-slide:hover .hot-news-image {
+  filter: grayscale(0%) contrast(1.1);
 }
 
 .hot-news-info {
-  padding: 0.8rem 0.9rem 0.9rem;
+  padding: 1.5rem;
 }
 
 .hot-news-item-title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 800;
   line-height: 1.45;
-  color: #e5e7eb;
+  color: #fafafa;
 }
 
 .hot-news-meta {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.35rem;
-  font-size: 0.8rem;
-  color: #94a3b8;
+  margin-top: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
 }
 
 .main-column {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .main-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.6rem;
-  padding: 0 0.2rem;
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+  border-bottom: 4px solid #333;
+  padding-bottom: 1rem;
 }
 
 .toolbar {
   display: flex;
-  gap: 0.6rem;
+  gap: 1rem;
 }
 
 .center-text {
   text-align: center;
-  color: #9ca3af;
+  color: #a1a1aa;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
 }
 </style>

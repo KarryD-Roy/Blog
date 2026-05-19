@@ -39,6 +39,13 @@ public class PostController {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(Post::getCreatedAt);
         IPage<Post> result = postService.page(Page.of(page, size), wrapper);
+
+        // Populate skillIds
+        if (result.getRecords() != null) {
+            for (Post post : result.getRecords()) {
+                post.setSkillIds(postService.getSkillIdsByPostId(post.getId()));
+            }
+        }
         return ApiResponse.ok(result);
     }
 
@@ -79,6 +86,13 @@ public class PostController {
         }
         wrapper.orderByDesc(Post::getPinned).orderByDesc(Post::getCreatedAt);
         IPage<Post> result = postService.page(Page.of(page, size), wrapper);
+
+        // Populate skillIds
+        if (result.getRecords() != null) {
+            for (Post post : result.getRecords()) {
+                post.setSkillIds(postService.getSkillIdsByPostId(post.getId()));
+            }
+        }
         return ApiResponse.ok(result);
     }
 
@@ -131,6 +145,9 @@ public class PostController {
             return ApiResponse.error("文章不存在");
         }
 
+        List<Long> skillIds = postService.getSkillIdsByPostId(id);
+        post.setSkillIds(skillIds);
+
         Post updated = postService.incrementViewCount(id);
         if (updated != null) {
             post.setViewCount(updated.getViewCount());
@@ -150,7 +167,7 @@ public class PostController {
         post.setCreatedAt(now);
         post.setUpdatedAt(now);
         post.setViewCount(0);
-        postService.save(post);
+        postService.savePostWithSkills(post);
         postSearchService.index(post);
         // Asynchronously ingest into Vector DB
         try {
@@ -167,7 +184,7 @@ public class PostController {
     public ApiResponse<Post> update(@PathVariable Long id, @RequestBody Post post) {
         post.setId(id);
         post.setUpdatedAt(LocalDateTime.now());
-        postService.updateById(post);
+        postService.updatePostWithSkills(post);
         postSearchService.index(post);
          // Asynchronously ingest into Vector DB
         try {
