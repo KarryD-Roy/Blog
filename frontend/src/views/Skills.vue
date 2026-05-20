@@ -137,12 +137,13 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, ref, nextTick, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { onBeforeUnmount, onMounted, reactive, ref, nextTick, computed, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import * as echarts from 'echarts';
 import axios from 'axios';
 
 const router = useRouter();
+const route = useRoute();
 const chartRef = ref(null);
 let chartInstance = null;
 let resizeHandler = null;
@@ -216,9 +217,6 @@ const buildGraphOption = () => {
   const categories = Array.from(new Set(skills.map((skill) => skill.category))).map((name) => ({ name }));
   const hasFixedCoords = skills.length > 0 && skills.every((skill) => skill.xAxis !== null && skill.yAxis !== null);
 
-  // 为每个 category 创建虚拟根节点
-  const finalCategories = [...categories];
-
   const data = skills.map((skill) => ({
     id: String(skill.id),
     name: skill.title,
@@ -254,7 +252,7 @@ const buildGraphOption = () => {
 
     skills.filter(s => s.category === cat.name).forEach(skill => {
       // 若该节点没有作为子节点被连接过，则连接到类别节点
-      if (!originalLinks.some(l => l.target == skill.id || l.source == skill.id)) {
+      if (!originalLinks.some(l => String(l.target) === String(skill.id) || String(l.source) === String(skill.id))) {
         links.push({
           source: catNodeId,
           target: String(skill.id)
@@ -320,15 +318,6 @@ const buildGraphOption = () => {
       }
     ]
   };
-};
-
-const renderGraph = () => {
-  if (!chartRef.value) return;
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value);
-  }
-  chartInstance.setOption(buildGraphOption(), true);
-  bindChartEvents();
 };
 
 const bindChartEvents = () => {
@@ -426,22 +415,39 @@ const fetchGraph = async () => {
         chartInstance.setOption(buildGraphOption(), true);
         bindChartEvents();
       }
+
+      // Restore drawer state from URL if present
+      const skillIdFromUrl = route.query.skillId;
+      if (skillIdFromUrl && !selectedSkill.value) {
+        const skill = graphSkills.value.get(Number(skillIdFromUrl));
+        if (skill) {
+          openDrawer(skill, false); // false to avoid redundant push
+        }
+      }
     }
   } finally {
     loading.value = false;
   }
 };
 
-const openDrawer = (skill) => {
+const openDrawer = (skill, updateUrl = true) => {
   selectedSkill.value = skill;
   drawerOpen.value = true;
   postPage.value = 1;
   fetchPosts();
   axios.post(`/api/skills/${skill.id}/visit`).catch(() => null);
+
+  if (updateUrl) {
+    router.replace({ query: { ...route.query, skillId: skill.id } });
+  }
 };
 
 const closeDrawer = () => {
   drawerOpen.value = false;
+  selectedSkill.value = null;
+  const newQuery = { ...route.query };
+  delete newQuery.skillId;
+  router.replace({ query: newQuery });
 };
 
 const editSkill = () => {
@@ -550,6 +556,18 @@ const submitSkill = async () => {
   await fetchGraph();
 };
 
+watch(() => route.query.skillId, (newId) => {
+  if (newId) {
+    const skill = graphSkills.value.get(Number(newId));
+    if (skill && (!selectedSkill.value || selectedSkill.value.id !== skill.id)) {
+      openDrawer(skill, false);
+    }
+  } else if (drawerOpen.value) {
+    drawerOpen.value = false;
+    selectedSkill.value = null;
+  }
+});
+
 onMounted(() => {
   fetchGraph();
   resizeHandler = () => {
@@ -636,7 +654,9 @@ onBeforeUnmount(() => {
   position: fixed;
   right: 2rem;
   top: 7rem;
-  width: 400px;
+  width: auto;
+  min-width: 400px;
+  max-width: 600px;
   max-height: calc(100vh - 10rem);
   background: #09090b;
   border: 4px solid #ccff00;
@@ -664,6 +684,7 @@ onBeforeUnmount(() => {
   font-weight: 800;
   color: #fafafa;
   text-transform: uppercase;
+  word-break: break-word;
 }
 
 .drawer-meta {
@@ -719,17 +740,17 @@ onBeforeUnmount(() => {
 .post-item {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  align-items: center;
+  gap: 1.5rem;
   padding: 1rem;
   border: 2px solid #333;
   background: #000;
   transition: all 0.2s ease;
 }
 
-.post-item:hover {
-  border-color: #ccff00;
-  transform: translate(-2px, -2px);
-  box-shadow: 4px 4px 0 rgba(204, 255, 0, 0.2);
+.post-item > div:first-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .post-title {
@@ -738,6 +759,8 @@ onBeforeUnmount(() => {
   font-family: 'Syne', sans-serif;
   font-size: 1.1rem;
   color: #fafafa;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .post-summary {
@@ -745,6 +768,7 @@ onBeforeUnmount(() => {
   font-size: 0.9rem;
   margin-top: 0.5rem;
   font-family: 'Manrope', sans-serif;
+  word-break: break-word;
 }
 
 .drawer-actions {

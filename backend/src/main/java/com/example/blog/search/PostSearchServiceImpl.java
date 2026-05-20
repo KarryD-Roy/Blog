@@ -51,7 +51,8 @@ public class PostSearchServiceImpl implements PostSearchService {
             if (StringUtils.hasText(keyword)) {
                 b.must(multiMatch(mm -> mm
                         .fields("title", "summary", "content", "tags_text")
-                        .query(keyword)));
+                        .query(keyword)
+                        .operator(co.elastic.clients.elasticsearch._types.query_dsl.Operator.And)));
             }
             if (categoryId != null) {
                 b.filter(term(t -> t.field("categoryId").value(categoryId)));

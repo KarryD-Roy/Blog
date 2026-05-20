@@ -272,6 +272,7 @@ import { Swiper, SwiperSlide } from 'swiper/vue';
 import { Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
+import clawhubIcon from '../static/favicon.ico';
 
 const modules = [Pagination, Autoplay];
 
@@ -537,10 +538,10 @@ const quickNavs = ref([
   },
   {
     id: 2,
-    title: 'Bilibili',
-    desc: '国内知名的视频弹幕网站',
-    url: 'https://www.bilibili.com',
-    icon: 'https://www.bilibili.com/favicon.ico'
+    title: 'ClawHub',
+    desc: '技术资源与知识分享平台',
+    url: 'https://clawhub.ai/',
+    icon: clawhubIcon
   },
   {
     id: 3,

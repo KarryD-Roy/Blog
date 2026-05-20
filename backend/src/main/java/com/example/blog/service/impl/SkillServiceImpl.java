@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -118,16 +117,38 @@ public class SkillServiceImpl extends ServiceImpl<SkillMapper, Skill> implements
 
         // 2. Second path: Elasticsearch / Text Match Search
         List<Long> searchPostIds = new ArrayList<>();
+        // Clean up common conjunctions for better matching
+        String skillTitle = skill.getTitle();
+        String searchKeyword = skillTitle.replaceAll("[与及和/&]", " ").replaceAll("\\s+", " ").trim();
+
         if (postSearchService.isEnabled()) {
-            IPage<Post> searchResult = postSearchService.search(1, 20, skill.getTitle(), null, null);
+            IPage<Post> searchResult = postSearchService.search(1, 40, searchKeyword, null, null);
             if (searchResult != null && searchResult.getRecords() != null) {
                 searchPostIds = searchResult.getRecords().stream().map(Post::getId).toList();
             }
         } else {
             // Fallback to basic DB keyword search if ES is disabled
+            // Improved: split title by common separators to match more relevant articles
+            String[] keywords = skillTitle.split("[\\s与及和&/]+");
             LambdaQueryWrapper<Post> fallbackWrapper = new LambdaQueryWrapper<>();
-            fallbackWrapper.like(Post::getTitle, skill.getTitle()).or().like(Post::getSummary, skill.getTitle());
-            Page<Post> fallbackPage = postMapper.selectPage(Page.of(1, 20), fallbackWrapper);
+            boolean firstKeyword = true;
+            for (String kw : keywords) {
+                String cleanKw = kw.trim();
+                if (cleanKw.isEmpty()) continue;
+
+                final String currentKw = cleanKw;
+                if (firstKeyword) {
+                    fallbackWrapper.nested(w -> w.like(Post::getTitle, currentKw)
+                            .or().like(Post::getSummary, currentKw)
+                            .or().like(Post::getTags, currentKw));
+                    firstKeyword = false;
+                } else {
+                    fallbackWrapper.or().nested(w -> w.like(Post::getTitle, currentKw)
+                            .or().like(Post::getSummary, currentKw)
+                            .or().like(Post::getTags, currentKw));
+                }
+            }
+            Page<Post> fallbackPage = postMapper.selectPage(Page.of(1, 40), fallbackWrapper);
             if (fallbackPage != null && fallbackPage.getRecords() != null) {
                 searchPostIds = fallbackPage.getRecords().stream().map(Post::getId).toList();
             }
