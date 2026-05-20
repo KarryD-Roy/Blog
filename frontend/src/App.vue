@@ -1,7 +1,7 @@
 <template>
   <div class="layout">
     <header class="header">
-      <div class="logo">Karry 的技术博客</div>
+      <div class="logo">KARRY TECH BLOG</div>
       <nav class="nav">
         <RouterLink to="/">首页</RouterLink>
         <RouterLink to="/skills">技能树</RouterLink>
