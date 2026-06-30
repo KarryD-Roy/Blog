@@ -18,7 +18,31 @@ const routes = [
   { path: '/statistics', name: 'statistics', component: Statistics },
   { path: '/ai/writer', name: 'ai-writer', component: AiWriter },
   { path: '/ai/recommendation', name: 'ai-recommendation', component: AiRecommendation },
-  { path: '/theory/:skillId', name: 'theory-detail', component: TheoryDetail }
+  { path: '/theory/:skillId', name: 'theory-detail', component: TheoryDetail },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/auth/Login.vue'),
+    meta: { guest: true }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('../views/auth/Register.vue'),
+    meta: { guest: true }
+  },
+  {
+    path: '/profile',
+    name: 'profile',
+    component: () => import('../views/user/Profile.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/messages',
+    name: 'messages',
+    component: () => import('../views/user/Messages.vue'),
+    meta: { requiresAuth: true }
+  }
 ];
 
 const router = createRouter({
@@ -30,6 +54,17 @@ const router = createRouter({
     } else {
       return { top: 0 };
     }
+  }
+});
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token');
+  if (to.meta.requiresAuth && !token) {
+    next({ name: 'login', query: { redirect: to.fullPath } });
+  } else if (to.meta.guest && token) {
+    next({ name: 'home' });
+  } else {
+    next();
   }
 });
 

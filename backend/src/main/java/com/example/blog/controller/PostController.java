@@ -7,11 +7,16 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.blog.config.SearchProperties;
 import com.example.blog.entity.Post;
 import com.example.blog.search.PostSearchService;
+import com.example.blog.security.UserContext;
 import com.example.blog.service.AiService;
 import com.example.blog.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -162,18 +167,22 @@ public class PostController {
     @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @PostMapping
     public ApiResponse<Post> create(@RequestBody Post post) {
+        Long userId = UserContext.getCurrentUserId();
+        if (userId == null) {
+            return ApiResponse.error("请先登录");
+        }
         post.setId(null);
+        post.setUserId(userId);
+        post.setStatus("PUBLISHED");
         LocalDateTime now = LocalDateTime.now();
         post.setCreatedAt(now);
         post.setUpdatedAt(now);
         post.setViewCount(0);
         postService.savePostWithSkills(post);
         postSearchService.index(post);
-        // Asynchronously ingest into Vector DB
         try {
              aiService.ingestArticle(post.getId());
         } catch (Exception e) {
-            // Log but don't fail the request
             e.printStackTrace();
         }
         return ApiResponse.ok(post);
@@ -182,15 +191,20 @@ public class PostController {
     @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @PutMapping("/{id}")
     public ApiResponse<Post> update(@PathVariable Long id, @RequestBody Post post) {
+        Post existing = postService.getById(id);
+        if (existing == null) {
+            return ApiResponse.error("文章不存在");
+        }
+        if (!canModify(existing)) {
+            return ApiResponse.error("无权修改该文章");
+        }
         post.setId(id);
         post.setUpdatedAt(LocalDateTime.now());
         postService.updatePostWithSkills(post);
         postSearchService.index(post);
-         // Asynchronously ingest into Vector DB
         try {
              aiService.ingestArticle(post.getId());
         } catch (Exception e) {
-            // Log but don't fail the request
              e.printStackTrace();
         }
         return ApiResponse.ok(post);
@@ -199,9 +213,28 @@ public class PostController {
     @CacheEvict(cacheNames = "posts:list", allEntries = true)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
+        Post existing = postService.getById(id);
+        if (existing == null) {
+            return ApiResponse.error("文章不存在");
+        }
+        if (!canModify(existing)) {
+            return ApiResponse.error("无权删除该文章");
+        }
         postService.removeById(id);
         postSearchService.delete(id);
         return ApiResponse.ok(null);
+    }
+
+    private boolean canModify(Post post) {
+        Long userId = UserContext.getCurrentUserId();
+        if (userId == null) return false;
+        if (userId.equals(post.getUserId())) return true;
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null) {
+            return auth.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        }
+        return false;
     }
 
     @PostMapping("/reindex")

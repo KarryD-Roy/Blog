@@ -1,234 +1,565 @@
-## 个人技术博客项目
+# KARRY TECH BLOG
 
-本项目是一个前后端分离的个人技术博客示例，后端采用 **Java + Spring Boot + MySQL + MyBatis-Plus + Redis**，前端采用 **Vue + HTML/CSS/JavaScript**。
+前后端分离的多用户个人技术博客系统。后端基于 **Spring Boot 3.2.5 + MySQL + MyBatis-Plus + Redis + RabbitMQ + Spring Security + JWT**，前端基于 **Vue 3 + Vite + Vue Router**。
 
-- **backend**：Spring Boot 后端服务，提供 REST API、持久化与缓存。
-- **frontend**：Vue 单页应用，提供博客页面展示与常见博客功能。
+## 技术栈
 
-### 快速开始
+| 层级 | 技术 | 版本 |
+|------|------|------|
+| 运行时 | Java | 17 |
+| 框架 | Spring Boot | 3.2.5 |
+| 持久层 | MyBatis-Plus | 3.5.5 |
+| 数据库 | MySQL | — |
+| 缓存 | Redis | — |
+| 消息队列 | RabbitMQ | — |
+| 全文检索 | Elasticsearch | 8.x（可选） |
+| 安全 | Spring Security + JWT | jjwt 0.12.5 |
+| 前端 | Vue 3 + Vite | 3.4.21 / 5.2.0 |
+| 路由 | Vue Router | 4.3.0 |
+| AI 服务 | Python FastAPI + ChromaDB | — |
 
-1. 安装并启动本地 MySQL 与 Redis（Redis 默认配置：`localhost:6379`，可按需修改 `backend/src/main/resources/application.yml`）。
-   - 如果本地有 Docker，可快速启动：
+## 目录结构
 
-     ```bash
-     docker run -d --name blog-redis -p 6379:6379 redis:7.2
-     ```
-2. 在 `backend/src/main/resources/application.yml` 中配置自己的数据库连接信息。
-3. 进入 `backend` 目录，执行 `mvn spring-boot:run` 启动后端。
-4. 进入 `frontend` 目录，执行：
+```
+Blog/
+├── backend/                          # Spring Boot 后端服务
+│   └── src/main/
+│       ├── java/com/example/blog/
+│       │   ├── config/               # 配置（缓存、ES、RabbitMQ、数据初始化）
+│       │   ├── controller/           # REST 控制器
+│       │   ├── dto/                  # 数据传输对象
+│       │   ├── entity/               # 数据库实体类
+│       │   ├── mapper/               # MyBatis-Plus Mapper
+│       │   ├── search/               # ES 搜索策略
+│       │   ├── security/             # JWT + Security 配置
+│       │   └── service/              # 业务服务层
+│       └── resources/
+│           ├── application.yml       # 主配置
+│           ├── schema.sql            # 建表脚本
+│           └── data.sql              # 示例数据
+├── frontend/                         # Vue 3 前端
+│   └── src/
+│       ├── api/                      # Axios API 封装层
+│       ├── components/               # 可复用组件
+│       ├── directives/               # 自定义指令
+│       ├── router/                   # 路由配置与守卫
+│       ├── static/                   # 静态资源
+│       ├── stores/                   # 响应式状态管理
+│       ├── views/                    # 页面视图组件
+│       │   ├── auth/                 # 登录/注册
+│       │   └── user/                 # 个人中心/消息
+│       ├── App.vue                   # 根组件（导航栏 + 用户菜单）
+│       ├── main.js                   # 入口
+│       └── styles.css                # 全局暗色主题样式
+├── ai_service/                       # Python AI 服务
+├── nginx.conf                        # Nginx 部署配置
+├── plan-blogMultiUserRefactoring.prompt.md  # 多用户改造设计文档
+└── README.md
+```
 
-   ```bash
-   npm install
-   # 依赖说明：
-   # npm install markdown-it (已集成)
-   # npm install echarts (新增图表支持)
-   npm run dev
-   ```
+---
 
-后端会在启动时自动创建表结构，并通过 `schema.sql` / `data.sql` 向数据库中写入包含「技能」在内的示例初始数据（包含技能树坐标与 `post_skill_relation` 文章关联样例）。
+## 快速开始
 
-## 新增功能：AI 辅助模块 (New AI Assistant Module)
+### 前置依赖
 
-### 1. Python AI Service Setup
+确保以下服务已启动：
 
-首先配置 Python 环境并安装依赖：
+| 服务 | 默认地址 | 说明 |
+|------|----------|------|
+| MySQL | `localhost:3306` | 需预先创建 `blog_db` 数据库 |
+| Redis | `localhost:6379` | 用于缓存与技能访问记录 |
+| RabbitMQ | `localhost:5672` | 用于审核通知异步解耦（启动失败时自动降级 Fallback） |
+| Elasticsearch | `localhost:9201` | 全文检索（Docker Compose 默认启用） |
+
+快速启动基础依赖（Docker）：
+
+```bash
+# MySQL
+docker run -d --name blog-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD= -e MYSQL_DATABASE=blog_db mysql:8.0
+
+# Redis
+docker run -d --name blog-redis -p 6379:6379 redis:7.2
+
+# RabbitMQ
+docker run -d --name blog-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.12-management
+
+# Elasticsearch（可选）
+docker run -d --name blog-es -p 9201:9200 -e "discovery.type=single-node" -e "xpack.security.enabled=false" elasticsearch:8.12.2
+```
+
+### 启动后端
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+后端启动后会自动执行 `schema.sql` 创建表结构（需要 `application.yml` 中 `spring.sql.init.mode` 不为 `never`）。同时 `DataInitConfig` 会初始化角色和默认用户：
+
+| 角色 | 用户名 | 密码 | 权限 |
+|------|--------|------|------|
+| 管理员 | `admin` | `admin123` | ADMIN, USER |
+| 普通用户 | `user` | `user123` | USER |
+
+### 启动前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+前端开发服务器运行在 `http://localhost:5173`，API 请求自动代理至 `localhost:8080`。
+
+### 启动 AI 服务（可选）
+
 ```bash
 cd ai_service
-# 建议使用 venv 虚拟环境
-python -m venv venv
-# Windows: venv\Scripts\activate
-# Linux/Mac: source venv/bin/activate
-
 pip install -r requirements.txt
+cp .env.example .env          # 填入 DASHSCOPE_API_KEY
+python main.py                # 运行在 http://localhost:8000
 ```
 
-配置环境变量：
-复制 `.env.example` 为 `.env`，并在 `.env` 中填入你的 `DASHSCOPE_API_KEY`。
+---
 
-运行 AI 服务：
+## Docker Compose 一键部署（推荐）
+
+使用 Docker Compose 一键启动全部依赖服务和前后端应用，无需手动安装 MySQL、Redis、RabbitMQ、Elasticsearch。
+
+### 前置要求
+
+| 工具 | 最低版本 | 说明 |
+|------|----------|------|
+| Docker | 20.10+ | 需安装 Docker Engine |
+| Docker Compose | 2.0+ | 通常随 Docker Desktop 一起安装 |
+| Git | — | 克隆项目代码 |
+
+### 部署步骤
+
+#### 1. 配置环境变量
+
 ```bash
-python main.py
+# 复制并编辑 .env 文件
+cp .env.example .env    # 如不存在 .env.example，直接编辑项目根目录下的 .env
 ```
-服务运行在 `http://localhost:8000`。
 
-### 2. 功能说明
+关键配置项说明：
 
-- **AI 总结**：在文章详情页点击“✨ AI 一键总结”，AI 会通过 SSE 流式输出文章摘要。
-- **AI 写作助手**：
-  - **模型升级**：集成阿里 **Qwen-Max** 旗舰模型，具备深度思考能力。
-  - **思考过程可视**：前端展示 AI 的思考链路 (`<think>...</think>`) 与总耗时，提升交互透明度。
-  - **界面优化**：全新暗色玻璃拟态风格 (Glassmorphism)，优化了分栏布局与滚动体验。
-- **RAG 检索**：文章发布或更新时，会自动同步到向量数据库 (ChromaDB)，支持基于语义的相似文章推荐。
+```bash
+# -------- 必填项 --------
+MYSQL_ROOT_PASSWORD=root123              # MySQL root 密码，生产环境务必修改
+JWT_SECRET=YourSuperSecretKey2024!        # JWT 签名密钥，生产环境务必修改为强密钥
+DASHSCOPE_API_KEY=sk-xxxxxxxxxxxx         # 通义千问 API Key（AI 服务必须）
+SEARCH_ELASTICSEARCH_ENABLED=true         # 启用 Elasticsearch 全文检索
 
----
+# -------- 可选项 --------
+ALIYUN_OSS_ACCESS_KEY_ID=xxxxx            # 阿里云 OSS AK（不使用可留空）
+ALIYUN_OSS_ACCESS_KEY_SECRET=xxxxx        # 阿里云 OSS SK（不使用可留空）
+```
 
-### 缓存与 Redis 使用
+#### 2. 构建并启动全部服务
 
-- 已接入 Spring Cache + Redis：
-  - 「热点资讯」接口 `GET /api/hot-news`：按日期或最新结果缓存，定时爬虫及启动爬虫后会自动清理缓存。
-  - 「最新文章」接口 `GET /api/posts`：分页结果缓存，文章新增/编辑/删除/置顶会清空该缓存。
-  - 「访问过的技能」：使用 Redis List 记录最近 20 条访问（`POST /api/skills/{id}/visit` 记录，`GET /api/skills/visited` 读取），并自动设置 7 天过期。
-- 缓存键前缀：`blog::`，默认 TTL 30 分钟，可在 `backend/src/main/java/com/example/blog/config/CacheConfig.java` 调整。
+```bash
+# 在项目根目录（docker-compose.yml 所在目录）执行
+docker compose build          # 构建前后端镜像
+docker compose up -d           # 后台启动全部服务
+```
 
----
+启动顺序由 Docker Compose 自动编排：
+```
+MySQL → Redis → RabbitMQ → Elasticsearch  (并行启动)
+                ↓ (等待全部健康检查通过)
+             Backend (Spring Boot)
+                ↓
+             Frontend (Nginx)
+```
 
-### 新增功能概览
+#### 3. 验证服务状态
 
-- **首页文章管理**：在首页通过弹窗新增、编辑、删除文章。
-- **技能树管理**：以 ECharts 力导向图渲染技能关系，支持拖拽固化坐标与点击节点查看关联文章。
-- **多内容格式支持**：文章正文支持纯文本、HTML 以及 Markdown 语法（前端自动渲染 Markdown）。
-- **附件上传 + OSS**：正文中支持从本地上传图片 / 附件到阿里云 OSS，并自动插入可预览链接。
-- **导航扩展**：导航栏新增「搜索」「文章大全」入口。
-- **搜索模块**：根据关键词或标签检索文章，并提供标签快捷筛选。
-- **文章大全模块**：集中查看所有文章，并按关键词、分类、标签进行筛选。
-- **技术热点资讯**：
-    - 首页左侧独立模块，展示每日技术热点（每日早上 8 点自动抓取/生成）。
-    - 采用 **Swiper** 实现轮播效果，支持手势滑动与自动播放。
-    - 点击卡片跳转至外链详情页。
-- **文章统计**：
-    - 独立的数据统计页面，集中展示博客运营数据（已修复图表显示异常，支持自适应缩放与横向布局）。
-    - 使用 **Apache ECharts** 呈现。
-    - 支持按 **分类占比**（饼图）和 **热门标签**（柱状图）统计文章。
+```bash
+# 查看所有容器状态（全部显示 healthy 表示就绪）
+docker compose ps
 
----
+# 预期输出
+# NAME              STATUS
+# blog-mysql        healthy
+# blog-redis        healthy
+# blog-rabbitmq     healthy
+# blog-es           healthy
+# blog-ai-service   healthy
+# blog-backend      running
+# blog-frontend     running
+```
 
-### 首页文章展示与分页策略
+#### 4. 访问服务
 
-- 入口：导航栏点击「首页」或访问 `/`。
-- 首页文章展示逻辑：
-  - 展示最新的 **12 篇文章**。
-  - 采用分页展示，每页固定显示 **4 篇文章**（共 3 页）。
-  - 卡片下方提供「上一页」/「下一页」导航按钮。
-- **文章管理功能**（通过弹窗实现）：
-  - **新增文章**：点击「新增文章」按钮，弹出编辑器对话框。
-  - **编辑文章**：点击文章卡片下方的「编辑」按钮，进入编辑模式。
-  - **删除文章**：点击文章卡片下方的「删除」按钮并确认。
-  - **编辑器支持**：标题（必填）、摘要、标签（英文逗号分隔）、正文（支持 HTML/Markdown）、图片/附件上传。
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| 博客首页 | `http://localhost` | Nginx 端口 80 |
+| 后端 API | `http://localhost:8080` | Spring Boot 端口 8080 |
+| AI 服务 | `http://localhost:8000` | FastAPI 端口 8000 |
+| Elasticsearch | `http://localhost:9201` | ES HTTP API（内部 9200，宿主机映射 9201） |
+| RabbitMQ 管理 | `http://localhost:15672` | guest / guest |
+| MySQL | `localhost:3307` | root 密码见 .env |
 
----
+#### 5. 初始化 Elasticsearch 索引
 
-### 技能树管理
+首次启动后，调用后端 API 将数据库中的文章回填到 ES 索引：
 
-- 入口：导航栏点击「技能树」或访问 `/skills`。
-- 视图形态：以力导向图展示技能节点及父子关系，支持缩放/平移。
-- 坐标固化：拖拽节点后自动保存坐标，刷新后以固定坐标渲染。
-- 面试题学习：点击节点后，在侧边抽屉首要展示该技能的理论知识和常见面试题汇总，同时附带关联实战博客列表。
-- 相关接口：
-  - `GET /api/skills/graph` 获取技能树节点与连线。
-  - `PUT /api/skills/coords` 批量保存节点坐标（带乐观锁）。
-  - `GET /api/skills/{id}/posts` 获取某技能关联文章分页。
+```bash
+curl -X POST http://localhost:8080/api/posts/reindex
+```
 
----
+#### 6. 查看日志
 
-### 搜索模块
+```bash
+# 查看所有服务日志
+docker compose logs -f
 
-- 入口：导航栏点击「搜索」或访问 `/search`。
-- 功能集成：
-  - **关键词搜索**：支持标题、摘要、正文、标签的全文检索（默认命中文档优先按照置顶、发布时间排序）。
-  - **快捷标签**：点击标签云中的标签可快速过滤内容。
-  - **分页策略**：搜索结果每页展示 **6 篇内容**。
-- **ElasticSearch 支持（可选）**：
-  - 后端已接入 Spring Data Elasticsearch，默认 `search.elasticsearch.enabled=false`，保持数据库模糊查询兼容。
-  - 启用步骤：
-    1) 本地启动 ES（示例：`docker run -d --name blog-es -p 9200:9200 -e "discovery.type=single-node" elasticsearch:8.12.2`）。
-    2) 将 `backend/src/main/resources/application.yml` 中 `search.elasticsearch.enabled` 置为 `true`，按需填写 `uris`/`username`/`password`/`index`。
-    3) 首次启用后调用 `POST /api/posts/reindex` 完成本地数据的全量回填，后续增删改会自动同步索引。
-  - 失败降级：如果 ES 不可用或未启用，搜索接口自动回退到 MySQL 的 `LIKE` 检索。
+# 查看指定服务日志
+docker compose logs -f backend
+docker compose logs -f elasticsearch
 
----
+# 检查 ES 启动日志（确认无报错）
+docker compose logs elasticsearch | grep -i error
+```
 
-### 文章大全模块
+### 停止与清理
 
-- 入口：导航栏点击「文章大全」或访问 `/posts`。
-- 页面结构：
-  - 顶部筛选区包含：
-    - 关键词输入框：匹配标题 / 摘要 / 正文；
-    - 分类下拉框：从获取所有分类；
-    - 标签输入框：单个标签；
-    - 「筛选」按钮：按当前条件过滤；
-    - 「重置」按钮：清空所有条件并重新加载。
-  - 下方是 **文章列表**，支持分页与置顶：
-    - 展示标题、浏览量、发布时间、分类 ID（回显）、摘要及标签；
-    - 文章列表使用统一分页大小：每页 10 条；
-    - 列表按 **置顶优先** + 发布时间倒序 排序；
-    - 支持在列表中对文章执行「置顶 / 取消置顶」；
-    - 点击任意文章卡片进入详情页。
-- **附件管理**：
-    - 在详情页底部自动解析正文中的附件，提供「下载」与「在线预览」功能。
+```bash
+# 停止所有服务
+docker compose down
 
----
+# 停止并删除数据卷（⚠️ 将清除所有持久化数据）
+docker compose down -v
+```
 
-### 技术热点资讯（首页左侧）
+### 端口映射总览
 
-- 展示每日更新的「技术热点资讯」轮播，可点击外链查看详情。
-- 交互：自动轮播 + 手动点击指示点切换；支持滑动选择（移动端可横向滚动）。
-- 数据来源：调用 `GET /api/hot-news`，默认返回最新 10 条，可按日期过滤（`?date=2026-03-16`）。
-- 数据结构：`title`、`url`、`imageUrl`、`source`、`publishDate`。
+| 容器 | 容器内端口 | 宿主机端口 | 说明 |
+|------|-----------|-----------|------|
+| MySQL | 3306 | 3307 | 避免与主机 MySQL 冲突 |
+| Redis | 6379 | 6379 | — |
+| RabbitMQ | 5672 | 5672 | AMQP 协议 |
+| RabbitMQ Management | 15672 | 15672 | Web 管理面板 |
+| Elasticsearch HTTP | 9200 | 9201 | REST API |
+| Elasticsearch Transport | 9300 | 9301 | 集群内部通信 |
+| AI Service | 8000 | 8000 | Python FastAPI |
+| Backend | 8080 | 8080 | Spring Boot |
+| Frontend | 80 | 80 | Nginx |
+
+> **注意**：容器间通过 Docker 内部网络 `blog-network` 通信，使用容器名作为主机名（如 `elasticsearch:9200`），与宿主机映射端口无关。
 
 ---
 
-### 首页文章展示与分页策略说明
+## 多用户系统
 
-- 首页（`/`）只展示「最新文章」，不再展示分页控件：
-  - 前端固定请求 `page=1&size=10`，展示最新 10 条文章；
-  - 新发布的文章会自动出现在首页顶部。
-- 搜索与文章大全的分页策略：
-  - 使用 `GET /api/posts/query`；
-  - 统一分页大小为每页 10 条；
-  - 排序规则：先按是否置顶，再按发布时间倒序。
+> 本次重大更新将单用户博客全面升级为多用户系统，引入身份认证、权限控制、社交互动与消息通知机制。
+
+### 核心变更
+
+| 维度 | 变更内容 |
+|------|----------|
+| 认证 | Spring Security + JWT 无状态 Token 认证，24h 过期 |
+| 授权 | 文章/技能按属主校验；Admin 拥有全部管理权限 |
+| 用户 | 注册/登录，默认分配 USER 角色，支持昵称/邮箱/简介 |
+| 评论 | 文章详情页支持嵌套评论与回复，作者或 Admin 可删除 |
+| 点赞 | 文章点赞/取消，实时计数，用户去重 |
+| 消息 | 站内信通知，审核结果 RabbitMQ 异步推送，前端 30s 轮询红点 |
+| 审核 | Admin 专区审核 PENDING 文章/技能，消息通过 RabbitMQ 异步触达 |
+
+### 新增 API 端点
+
+#### 认证（公开）
+
+```
+POST /api/auth/register         注册新用户（Body: username, password, email?, nickname?）
+POST /api/auth/login            用户登录，返回 JWT Token 与用户信息
+GET  /api/auth/profile          获取当前登录用户信息（需 Token）
+```
+
+#### 用户管理
+
+```
+GET  /api/users/profile         当前用户个人信息
+GET  /api/users                 所有用户列表（Admin only）
+```
+
+#### 评论
+
+```
+GET    /api/posts/{postId}/comments           获取文章评论列表（公开）
+POST   /api/posts/{postId}/comments           添加评论/回复（需登录，Body: content, parentId?）
+DELETE /api/posts/{postId}/comments/{id}      删除评论（作者或 Admin）
+```
+
+#### 点赞
+
+```
+GET  /api/posts/{postId}/like    获取点赞状态与总数
+POST /api/posts/{postId}/like    切换点赞/取消点赞（需登录）
+```
+
+#### 消息通知
+
+```
+GET  /api/messages                分页获取当前用户消息
+GET  /api/messages/unread-count   获取未读消息数（用于前端红点轮询）
+PUT  /api/messages/{id}/read      标记单条消息已读
+PUT  /api/messages/read-all       全部标记已读
+```
+
+#### 管理员审核
+
+```
+GET  /api/admin/review/posts          待审核文章列表
+GET  /api/admin/review/skills         待审核技能列表
+PUT  /api/admin/review/posts/{id}     审核文章（Body: status, reason?）
+PUT  /api/admin/review/skills/{id}    审核技能（Body: status, reason?）
+```
+
+#### 已有接口行为变更
+
+| 接口 | 变更 |
+|------|------|
+| `POST /api/posts` | 需登录，自动设置 `userId` 和 `status=PUBLISHED` |
+| `PUT /api/posts/{id}` | 需属主或 Admin 权限 |
+| `DELETE /api/posts/{id}` | 需属主或 Admin 权限 |
+| `POST/PUT/DELETE /api/skills/*` | 写操作需认证 |
+
+### 安全架构
+
+```
+请求 → JwtAuthenticationFilter（解析 Bearer Token）
+     → SecurityContextHolder（认证信息注入）
+     → UserContext（ThreadLocal 透传 userId）
+     → AuthInterceptor（preHandle 记录 / afterCompletion 清理 ThreadLocal）
+     → Controller（@PreAuthorize 方法级权限校验 + canModify 属主校验）
+```
+
+- `UserContext.clear()` 在拦截器 `afterCompletion()` 中强制调用，**杜绝内存泄漏**。
+- 登录/注册端点放行，GET 类查询接口公开，写操作需认证。
 
 ---
 
-### 前端通过 Nginx 部署
+## 数据库表结构（共 12 张表）
 
-为了方便部署，项目根目录下已经准备了一个参考配置文件 `nginx.conf`。
-
-1. **打包前端**：
-   在 `frontend` 目录执行构建命令，生成 `dist` 静态资源目录：
-
-   ```bash
-   cd frontend
-   npm install
-   npm run build
-   ```
-
-2. **配置 Nginx**：
-   - 确保已安装 Nginx（推荐下载 Windows 版解压即可）。
-   - 打开项目根目录下的 `nginx.conf` 文件。
-   - 确认 `root` 路径是否正确指向了你的本地 `dist` 目录（当前配置为 `C:/Users/Karry/Desktop/Trae01/Blog/frontend/dist`）。
-   - 将 `nginx.conf` 中的内容 **覆盖** 到 Nginx 安装目录下的 `conf/nginx.conf` 文件中；或者并在启动时指定该配置文件。
-
-3. **启动 Nginx**：
-
-   ```bash
-   # 在 Nginx 安装目录下
-   start nginx.exe
-   # 或者指定配置文件启动
-   # nginx -c C:/Users/Karry/Desktop/Trae01/Blog/nginx.conf
-   ```
-
-4. **验证**：
-   确保后端服务已启动（`mvn spring-boot:run`），访问 `http://localhost/` 即可。
+| 表名 | 说明 | 新增/变更 |
+|------|------|-----------|
+| `users` | 用户表 | 🆕 本次新增 |
+| `roles` | 角色表（ADMIN / USER） | 🆕 本次新增 |
+| `user_roles` | 用户-角色关联 | 🆕 本次新增 |
+| `messages` | 站内信通知 | 🆕 本次新增 |
+| `comments` | 文章评论（支持嵌套） | 🆕 本次新增 |
+| `post_likes` | 文章点赞（唯一约束防重复） | 🆕 本次新增 |
+| `posts` | 文章表 | 🔄 新增 `user_id`, `status` 字段 |
+| `skills` | 技能树节点 | 🔄 新增 `user_id`, `status` 字段 |
+| `categories` | 文章分类 | — 未变更 |
+| `hot_news` | 热点资讯 | — 未变更 |
+| `theories` | 技能理论知识 | — 未变更 |
+| `post_skill_relation` | 文章-技能多对多关联 | — 未变更 |
 
 ---
 
-### Markdown 与内容格式支持说明
+## 配置参数
 
-前端通过 `markdown-it` 自动将 Markdown 文本渲染为 HTML，在文章详情页中展示。
+### application.yml 新增配置
 
-- 依赖安装：
+```yaml
+# JWT 配置
+jwt:
+  secret: YourSuperSecretKeyForJWTTokenGenerationAndValidation2024!
+  expiration: 86400000        # Token 有效期 24 小时（毫秒）
 
-  ```bash
-  cd frontend
-  npm install markdown-it
-  ```
+# RabbitMQ 配置（spring.rabbitmq 下）
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-attempts: 3         # 消费失败重试 3 次
+          initial-interval: 1000  # 初始重试间隔 1 秒
+```
 
-- 使用建议：
-  - 在首页「新增 / 编辑文章」的正文输入框中直接输入 Markdown；
-  - 如果正文以 `<` 开头（例如以 `<p>` `<h1>` `<img>` 等 HTML 标签开头），系统会按 **原始 HTML** 渲染；
-  - 否则将按 Markdown 语法渲染。
-- 图片支持：
-  - 可以直接使用 Markdown 语法：`![说明文字](图片地址)`；
-  - 或者在正文中写 `<img src="图片地址" alt="说明文字" />`。
+### Cache 配置
 
-> 安全提示：目前为个人博客示例，前端会直接渲染后端返回的 HTML / Markdown 渲染结果，上线到公网时请补充 XSS 等安全防护。
+- 缓存键前缀：`blog:v2::`
+- 默认 TTL：30 分钟（`CacheConfig.java` 中配置）
+- 文章列表缓存：文章新增/编辑/删除/置顶自动驱逐
+- 热点资讯缓存：按日期缓存，爬虫更新时驱逐
+
+---
+
+## 前端架构
+
+### 路由表
+
+| 路径 | 页面 | 认证要求 |
+|------|------|----------|
+| `/` | 首页（热点资讯 + 文章列表） | 公开 |
+| `/login` | 登录 | 仅游客 |
+| `/register` | 注册 | 仅游客 |
+| `/posts` | 文章大全（筛选 + 分页） | 公开 |
+| `/posts/:id` | 文章详情（含评论 + 点赞 + AI 总结） | 公开（评论/点赞需登录） |
+| `/skills` | 技能树力导向图 | 公开 |
+| `/search` | 搜索（关键词 + 标签筛选） | 公开 |
+| `/statistics` | 数据统计图表 | 公开 |
+| `/profile` | 个人中心 | 需登录 |
+| `/messages` | 我的消息 | 需登录 |
+| `/ai/writer` | AI 帮写 | 公开 |
+| `/ai/recommendation` | AI 文章推荐 | 公开 |
+| `/theory/:skillId` | 理论知识详情 | 公开 |
+
+### 路由守卫
+
+- `requiresAuth`：未登录自动跳转 `/login`，登录后重定向回原页面
+- `guest`：已登录用户访问登录/注册页时自动跳转首页
+
+### Axios 拦截器
+
+- **请求拦截**：自动从 `localStorage` 读取 Token 附加到 `Authorization: Bearer xxx` 请求头
+- **响应拦截**：`401/403` 时自动清除本地 Token 并跳转登录页
+
+### 消息红点轮询
+
+- 用户登录后，前端每 **30 秒** 调用 `GET /api/messages/unread-count` 更新导航栏红点数
+- 登出或离开页面时自动停止轮询
+
+### 新增前端文件
+
+```
+src/api/
+├── index.js          # Axios 实例 + 拦截器
+├── auth.js           # 认证 API
+├── comments.js       # 评论 API
+├── like.js           # 点赞 API
+└── messages.js       # 消息 API
+
+src/stores/
+├── auth.js           # 用户登录态管理（localStorage 持久化）
+└── message.js        # 未读消息数 + 轮询控制
+
+src/components/
+├── CommentSection.vue  # 评论区（树形嵌套、回复、删除）
+└── LikeButton.vue      # 点赞按钮（心形动画、乐观更新）
+
+src/views/
+├── auth/
+│   ├── Login.vue       # 登录页面
+│   └── Register.vue    # 注册页面
+└── user/
+    ├── Profile.vue     # 个人中心
+    └── Messages.vue    # 消息中心
+```
+
+---
+
+## RabbitMQ 审核通知流程
+
+```
+[Admin 审核] → PUT /api/admin/review/posts/{id}
+             → ReviewService.reviewPost()
+             → {{rabbitTemplate}}.convertAndSend("review.exchange", "review.notification", ...)
+             → [RabbitMQ Broker]
+             → NotificationListener.handleReviewNotification()
+             → MessageService.sendMessage() → 写入 messages 表
+             → 前端轮询 GET /api/messages/unread-count → 红点提醒
+```
+
+**可靠投递保障**：
+- 消息队列声明为 `durable`（持久化）
+- 配置死信队列 `review.dlx.exchange`
+- RabbitTemplate 配置了 `ConfirmCallback` 与 `ReturnsCallback`
+- RabbitMQ 不可用时，ReviewService 直接降级写入 Message，不丢失通知
+
+---
+
+## AI 辅助模块
+
+> 配置与启动详见上方「启动 AI 服务」章节。
+
+- **AI 总结**：文章详情页点击 "✨ AI 一键总结"，通过 SSE 流式输出摘要，支持思考过程可视化
+- **AI 写作助手**：集成阿里 **Qwen-Max** 旗舰模型，前端支持风格选择与暗色玻璃拟态界面
+- **RAG 检索**：文章发布/更新自动同步至 ChromaDB 向量数据库，支持语义相似文章推荐
+
+---
+
+## Elasticsearch 全文检索
+
+### 版本兼容
+
+| 组件 | 版本 | 说明 |
+|------|------|------|
+| Elasticsearch Server | 8.12.2 | Docker 镜像 `elasticsearch:8.12.2` |
+| spring-data-elasticsearch | 5.2.5 | Spring Boot 3.2.5 自带 |
+| elasticsearch-java | 8.10.4+ | 新版 Java API Client |
+
+> **兼容性说明**：Elasticsearch Server 8.12.x 向后兼容 8.10+ 客户端，上述版本组合已经过验证可正常工作。
+
+### Docker Compose 部署（默认启用）
+
+Docker Compose 中 ES 服务已默认启用，无需额外配置：
+- 单节点模式（`discovery.type=single-node`）
+- 安全认证关闭（`xpack.security.enabled=false`）
+- 宿主机端口映射：`9201:9200`（HTTP）、`9301:9300`（Transport）
+- 后端通过容器内部网络访问：`http://elasticsearch:9200`
+
+### 本地开发
+
+如果不在 Docker 中运行，手动启动 ES：
+
+```bash
+docker run -d --name blog-es -p 9201:9200 -p 9301:9300 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  elasticsearch:8.12.2
+```
+
+### 启用/禁用
+
+- **启用**：`.env` 中设置 `SEARCH_ELASTICSEARCH_ENABLED=true`（默认）
+- **禁用**：设置为 `false`，搜索将自动回退到 MySQL `LIKE` 查询
+- 首次启用后调用 `POST /api/posts/reindex` 全量回填索引
+- 失败降级：ES 不可用时自动回退 MySQL `LIKE` 查询
+
+---
+
+## Markdown 支持
+
+- 前端通过 `markdown-it` + `highlight.js` 自动渲染 Markdown 为语法高亮 HTML
+- 正文以 `<` 开头时按原始 HTML 渲染，否则按 Markdown 渲染
+- 已集成 `DOMPurify` XSS 过滤防护
+
+---
+
+## Nginx 部署
+
+```bash
+cd frontend
+npm run build
+
+# 将 nginx.conf 覆盖至 Nginx conf 目录，或指定配置文件启动
+nginx -c C:/path/to/Blog/nginx.conf
+```
+
+---
+
+## 项目资源
+
+| 项 | 说明 |
+|-----|------|
+| 后端端口 | `8080` |
+| 前端 dev 端口 | `5173`（`npm run dev`） |
+| AI 服务端口 | `8000`（Python FastAPI） |
+| Elasticsearch | `localhost:9201`（Docker，容器内 `elasticsearch:9200`） |
+| MySQL 数据库 | `blog_db`，用户名 `root` |
+| Redis | `localhost:6379` |
+| RabbitMQ 管理面板 | `http://localhost:15672`（guest/guest） |
+| Docker Compose | `docker compose up -d` 一键启动全部服务 |

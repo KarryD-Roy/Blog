@@ -33,6 +33,11 @@
 
       <div class="post-content" v-html="renderedContent"></div>
 
+      <!-- Like Button -->
+      <div class="post-interactions" v-if="post">
+        <LikeButton :postId="post.id" />
+      </div>
+
       <div v-if="attachments.length > 0" class="attachments-section">
         <h3>附件列表</h3>
         <div v-for="(file, index) in attachments" :key="index" class="attachment-item">
@@ -45,6 +50,9 @@
       </div>
     </article>
     <div v-else class="center-text">文章不存在或已删除。</div>
+
+    <!-- Comment Section -->
+    <CommentSection v-if="post" :postId="post.id" />
   </div>
 </template>
 
@@ -56,6 +64,8 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github-dark.css';
+import LikeButton from '../components/LikeButton.vue';
+import CommentSection from '../components/CommentSection.vue';
 
 const route = useRoute();
 const post = ref(null);
@@ -371,6 +381,12 @@ onMounted(fetchDetail);
 .btn.small {
   font-size: 0.8rem;
   padding: 0.4rem 0.8rem;
+}
+
+.post-interactions {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid #333;
 }
 
 .ai-summary-section {

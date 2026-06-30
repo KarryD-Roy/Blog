@@ -20,6 +20,18 @@ spring:
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+
 
 search:
   elasticsearch:
@@ -52,3 +64,8 @@ aliyun:
 ai:
   service:
     url: http://localhost:8000/api/ai
+
+# JWT Configuration
+jwt:
+  secret: YourSuperSecretKeyForJWTTokenGenerationAndValidation2024!
+  expiration: 86400000

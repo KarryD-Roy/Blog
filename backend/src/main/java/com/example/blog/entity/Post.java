@@ -20,6 +20,8 @@ public class Post {
 
     private String content;
 
+    private Long userId;
+
     private Long categoryId;
 
     private String tags; // 以逗号分隔的标签
@@ -30,6 +32,11 @@ public class Post {
      * 是否置顶，true 表示置顶
      */
     private Boolean pinned;
+
+    /**
+     * 审核状态：PUBLISHED, PENDING, REJECTED
+     */
+    private String status;
 
     @com.baomidou.mybatisplus.annotation.TableField(exist = false)
     private java.util.List<Long> skillIds;

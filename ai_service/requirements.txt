@@ -3,7 +3,7 @@ uvicorn
 langchain
 langchain-community
 langchain-text-splitters
-chromadb
+chromadb==0.5.23
 pydantic
 python-multipart
 requests
@@ -11,4 +11,4 @@ python-dotenv
 dashscope
 httpx
 sse-starlette
-langchain-chroma
+langchain-chroma==0.2.2

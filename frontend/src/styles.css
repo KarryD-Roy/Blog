@@ -118,6 +118,53 @@ a {
   border-color: #ccff00;
 }
 
+/* User Navigation */
+.user-nav {
+  margin-left: auto;
+  padding-left: 2rem;
+  border-left: 2px solid #333;
+}
+
+.user-trigger {
+  color: #ccff00 !important;
+  font-weight: bold;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
+  background: #ff3333;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: bold;
+  border-radius: 9px;
+  margin-left: 0.5rem;
+  line-height: 1;
+}
+
+.msg-link {
+  position: relative;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #333;
+  margin: 0;
+}
+
+.dropdown-content a.dropdown-divider {
+  padding: 0;
+  cursor: default;
+}
+
+.dropdown-content a.dropdown-divider:hover {
+  background: none;
+}
+
 .main {
   flex: 1;
   padding: 3rem 4rem;

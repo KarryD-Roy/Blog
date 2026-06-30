@@ -25,6 +25,16 @@ public class Skill {
     private Boolean pinned;
 
     /**
+     * 属主用户ID
+     */
+    private Long userId;
+
+    /**
+     * 审核状态：PUBLISHED, PENDING, REJECTED
+     */
+    private String status;
+
+    /**
      * 上级技能 ID
      */
     private Long parentId;

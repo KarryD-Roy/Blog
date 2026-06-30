@@ -79,7 +79,7 @@
         <div class="main-header">
            <h1 class="page-title" style="margin-bottom: 0;">最新文章</h1>
            <div class="toolbar" style="margin-bottom: 0;">
-            <button class="btn primary" @click="openCreate">
+            <button v-if="isAuthenticated" class="btn primary" @click="openCreate">
               新增文章
             </button>
           </div>
@@ -273,6 +273,7 @@ import { Pagination, Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import clawhubIcon from '../static/favicon.ico';
+import { useAuth } from '../stores/auth.js';
 
 const modules = [Pagination, Autoplay];
 
@@ -282,6 +283,7 @@ defineOptions({
 
 const router = useRouter();
 const route = useRoute();
+const { isAuthenticated } = useAuth();
 const posts = ref([]);
 const categories = ref([]);
 const skills = ref([]);

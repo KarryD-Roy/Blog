@@ -1,9 +1,11 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import os
 import re
 import html
+import sqlite3
 from dotenv import load_dotenv
 from sse_starlette.sse import EventSourceResponse
 
@@ -20,6 +22,24 @@ STYLE_EXAMPLES = {
 load_dotenv()
 
 app = FastAPI(title="AI Assistant Service", version="1.0.0")
+
+@app.on_event("startup")
+async def startup_diagnostics():
+    """在服务启动时输出关键诊断信息，便于排查 ChromaDB 等组件的初始化状态。"""
+    print("=" * 56)
+    print("[STARTUP] AI Service diagnostics")
+    print(f"[STARTUP] SQLite version       : {sqlite3.sqlite_version}")
+    print(f"[STARTUP] ChromaDB persist dir : {rag_service.persist_directory}")
+    print(f"[STARTUP] ChromaDB collection  : {rag_service.collection_name}")
+    print(f"[STARTUP] DASHSCOPE_API_KEY    : {'SET' if rag_service.api_key else 'MISSING'}")
+    print(f"[STARTUP] RAG ready            : {rag_service.is_ready()}")
+    if not rag_service.is_ready():
+        print(f"[STARTUP] RAG init error       : {rag_service.init_error}")
+    else:
+        embedding_test = rag_service.test_embedding()
+        print(f"[STARTUP] Embedding test       : {embedding_test}")
+        print(f"[STARTUP] Document count       : {rag_service.count_documents()}")
+    print("=" * 56)
 
 # --- Models ---
 class SummaryRequest(BaseModel):
@@ -577,7 +597,18 @@ async def recommend(request: RecommendationRequest):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    """健康检查端点。若 ChromaDB 未就绪则返回 503，便于 docker-compose healthcheck 感知异常。"""
+    rag_ok = rag_service.is_ready()
+    if not rag_ok:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "degraded",
+                "rag_ready": False,
+                "rag_error": rag_service.init_error or "RAG not initialized",
+            },
+        )
+    return {"status": "ok", "rag_ready": True}
 
 if __name__ == "__main__":
     import uvicorn
