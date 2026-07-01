@@ -62,7 +62,7 @@ public class UserServiceImpl implements UserService {
 
         // Assign ROLE_USER by default
         LambdaQueryWrapper<Role> roleQuery = new LambdaQueryWrapper<>();
-        roleQuery.eq(Role::getName, "ROLE_USER");
+        roleQuery.eq(Role::getName, "USER");
         Role defaultRole = roleMapper.selectOne(roleQuery);
         if (defaultRole != null) {
             UserRole userRole = new UserRole();

@@ -32,6 +32,22 @@ async def startup_diagnostics():
     print(f"[STARTUP] ChromaDB persist dir : {rag_service.persist_directory}")
     print(f"[STARTUP] ChromaDB collection  : {rag_service.collection_name}")
     print(f"[STARTUP] DASHSCOPE_API_KEY    : {'SET' if rag_service.api_key else 'MISSING'}")
+
+    # 检查目录是否存在且可写
+    import stat as _stat
+    _dir = rag_service.persist_directory
+    _exists = os.path.exists(_dir)
+    _writable = os.access(_dir, os.W_OK) if _exists else False
+    _owner = os.stat(_dir).st_uid if _exists else None
+    _current_uid = os.getuid()
+    print(f"[STARTUP] Dir exists            : {_exists}")
+    print(f"[STARTUP] Dir writable          : {_writable}")
+    print(f"[STARTUP] Dir owner UID         : {_owner}")
+    print(f"[STARTUP] Current process UID   : {_current_uid}")
+    if not _writable:
+        print("[STARTUP] *** PERMISSION ERROR: persist directory is not writable! ***")
+        print(f"[STARTUP] *** Run: docker compose run --rm -u root ai-service chown -R {_current_uid}:{_current_uid} {_dir}")
+
     print(f"[STARTUP] RAG ready            : {rag_service.is_ready()}")
     if not rag_service.is_ready():
         print(f"[STARTUP] RAG init error       : {rag_service.init_error}")

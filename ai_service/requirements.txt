@@ -8,7 +8,7 @@ pydantic
 python-multipart
 requests
 python-dotenv
-dashscope
+dashscope>=1.19.0
 httpx
 sse-starlette
 langchain-chroma==0.2.2
