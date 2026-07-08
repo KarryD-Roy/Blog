@@ -263,7 +263,7 @@
 <script setup>
 import { computed, onMounted, onActivated, ref, reactive, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import axios from 'axios';
+import api from '../api/index.js';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js';
@@ -341,7 +341,7 @@ const previewHtml = computed(() => {
 const fetchPosts = async () => {
   loading.value = true;
   try {
-    const res = await axios.get('/api/posts', {
+    const res = await api.get('/posts', {
       params: { page: page.value, size: 4 }
     });
     if (res.data.code === 0) {
@@ -355,7 +355,7 @@ const fetchPosts = async () => {
 
 const fetchCategories = async () => {
   try {
-    const res = await axios.get('/api/categories');
+    const res = await api.get('/categories');
     if (res.data.code === 0) {
       categories.value = res.data.data;
     }
@@ -366,7 +366,7 @@ const fetchCategories = async () => {
 
 const fetchSkills = async () => {
   try {
-    const res = await axios.get('/api/skills');
+    const res = await api.get('/skills');
     if (res.data.code === 0) {
       skills.value = res.data.data;
     }
@@ -480,9 +480,9 @@ const submitPost = async () => {
     skillIds: form.skillIds
   };
   if (editingPost.value && editingPost.value.id) {
-    await axios.put(`/api/posts/${editingPost.value.id}`, payload);
+    await api.put(`/posts/${editingPost.value.id}`, payload);
   } else {
-    await axios.post('/api/posts', payload);
+    await api.post('/posts', payload);
   }
   resetForm();
   closeEditor();
@@ -492,7 +492,7 @@ const submitPost = async () => {
 const deletePost = async (id) => {
   // 简单确认，详细交互见 README
   if (!window.confirm('确认删除该文章吗？')) return;
-  await axios.delete(`/api/posts/${id}`);
+  await api.delete(`/posts/${id}`);
   fetchPosts();
 };
 
@@ -510,7 +510,7 @@ const handleFileChange = async (e) => {
   const formData = new FormData();
   formData.append('file', file);
   try {
-    const res = await axios.post('/api/oss/upload', formData, {
+    const res = await api.post('/oss/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     if (res.data.code === 0 && res.data.data) {
@@ -585,7 +585,7 @@ const openLink = (url) => {
 
 const fetchHotNews = async () => {
   try {
-    const res = await axios.get('/api/hot-news');
+    const res = await api.get('/hot-news');
     if (res.data.code === 0) {
       hotNews.value = res.data.data || [];
     }

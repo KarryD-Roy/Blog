@@ -1,4 +1,4 @@
-<template>
+ <template>
   <div class="page">
     <button class="back-btn" @click="$router.back()">← 返回</button>
     <h1 class="page-title">文章大全</h1>
@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onActivated, ref, watch } from 'vue';
+import { computed, onMounted, onActivated, onUnmounted, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
@@ -130,6 +130,7 @@ const loading = ref(false);
 const page = ref(route.query.page ? parseInt(route.query.page) : 1);
 const totalPages = ref(1);
 const showCategoryDropdown = ref(false);
+let refreshTimer = null;
 
 const selectedCategoryName = computed(() => {
   if (categoryId.value === '' || categoryId.value === null) return '全部分类';
@@ -239,10 +240,16 @@ watch(
 onMounted(() => {
   fetchCategories();
   fetchPosts();
+  // 每30秒自动刷新文章列表，确保最新发布的内容及时展示
+  refreshTimer = setInterval(fetchPosts, 30000);
 });
 
 onActivated(() => {
   fetchPosts();
+});
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer);
 });
 </script>
 

@@ -1,13 +1,18 @@
 package com.example.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.blog.dto.LoginRequest;
 import com.example.blog.dto.LoginResponse;
 import com.example.blog.dto.RegisterRequest;
 import com.example.blog.dto.UserProfileVo;
+import com.example.blog.entity.Post;
 import com.example.blog.entity.Role;
 import com.example.blog.entity.User;
 import com.example.blog.entity.UserRole;
+import com.example.blog.mapper.PostMapper;
 import com.example.blog.mapper.RoleMapper;
 import com.example.blog.mapper.UserMapper;
 import com.example.blog.mapper.UserRoleMapper;
@@ -28,15 +33,18 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
+    private final PostMapper postMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
     public UserServiceImpl(UserMapper userMapper, RoleMapper roleMapper,
-                           UserRoleMapper userRoleMapper, PasswordEncoder passwordEncoder,
+                           UserRoleMapper userRoleMapper, PostMapper postMapper,
+                           PasswordEncoder passwordEncoder,
                            JwtUtil jwtUtil) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
+        this.postMapper = postMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
     }
@@ -114,6 +122,41 @@ public class UserServiceImpl implements UserService {
         vo.setRoles(getUserRoles(userId));
         vo.setCreatedAt(user.getCreatedAt());
         return vo;
+    }
+
+    @Override
+    @Transactional
+    public UserProfileVo updateProfile(Long userId, UserProfileVo profileData) {
+        LambdaUpdateWrapper<User> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(User::getId, userId);
+
+        if (profileData.getNickname() != null) {
+            wrapper.set(User::getNickname, profileData.getNickname());
+        }
+        if (profileData.getEmail() != null) {
+            wrapper.set(User::getEmail, profileData.getEmail());
+        }
+        if (profileData.getAvatar() != null) {
+            wrapper.set(User::getAvatar, profileData.getAvatar());
+        }
+        if (profileData.getBio() != null) {
+            wrapper.set(User::getBio, profileData.getBio());
+        }
+        wrapper.set(User::getUpdatedAt, LocalDateTime.now());
+
+        userMapper.update(null, wrapper);
+        return getProfile(userId);
+    }
+
+    @Override
+    public IPage<Post> getMyPosts(Long userId, long page, long size, String status) {
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Post::getUserId, userId)
+               .orderByDesc(Post::getCreatedAt);
+        if (status != null && !status.isEmpty()) {
+            wrapper.eq(Post::getStatus, status);
+        }
+        return postMapper.selectPage(Page.of(page, size), wrapper);
     }
 
     @Override

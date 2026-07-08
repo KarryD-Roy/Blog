@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
@@ -42,7 +41,10 @@ public class PostController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long size) {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(Post::getCreatedAt);
+        // 公开列表只展示已发布的文章，不展示待审核/已驳回的
+        wrapper.eq(Post::getStatus, "PUBLISHED")
+               .orderByDesc(Post::getPinned)
+               .orderByDesc(Post::getCreatedAt);
         IPage<Post> result = postService.page(Page.of(page, size), wrapper);
 
         // Populate skillIds
@@ -71,6 +73,8 @@ public class PostController {
         }
 
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
+        // 公开查询只展示已发布的文章
+        wrapper.eq(Post::getStatus, "PUBLISHED");
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
                     .like(Post::getTitle, keyword)
@@ -110,6 +114,9 @@ public class PostController {
         Post post = postService.getById(id);
         if (post == null) {
             return ApiResponse.error("文章不存在");
+        }
+        if (!canModify(post)) {
+            return ApiResponse.error("无权操作该文章，仅作者可修改置顶状态");
         }
         post.setPinned(pinned);
         post.setUpdatedAt(LocalDateTime.now());
@@ -173,7 +180,10 @@ public class PostController {
         }
         post.setId(null);
         post.setUserId(userId);
-        post.setStatus("PUBLISHED");
+        // 普通用户提交的文章默认为待审核状态，ADMIN角色直接发布
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        post.setStatus(isAdmin ? "PUBLISHED" : "PENDING");
         LocalDateTime now = LocalDateTime.now();
         post.setCreatedAt(now);
         post.setUpdatedAt(now);
@@ -225,16 +235,14 @@ public class PostController {
         return ApiResponse.ok(null);
     }
 
+    /**
+     * 权限校验：仅允许文章作者本人执行修改/删除操作
+     * 管理员也不得越权操作他人的文章，确保数据安全
+     */
     private boolean canModify(Post post) {
         Long userId = UserContext.getCurrentUserId();
         if (userId == null) return false;
-        if (userId.equals(post.getUserId())) return true;
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null) {
-            return auth.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        }
-        return false;
+        return userId.equals(post.getUserId());
     }
 
     @PostMapping("/reindex")

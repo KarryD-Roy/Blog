@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS hot_news;
 DROP TABLE IF EXISTS posts;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS import_tasks;
+DROP TABLE IF EXISTS checkin_records;
 DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS users;
 
@@ -155,4 +156,15 @@ CREATE TABLE IF NOT EXISTS import_tasks (
     started_at DATETIME COMMENT '开始时间',
     completed_at DATETIME COMMENT '完成时间',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 用户每日签到记录表
+CREATE TABLE IF NOT EXISTS checkin_records (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    checkin_date DATE NOT NULL COMMENT '签到日期',
+    consecutive_days INT DEFAULT 1 COMMENT '连续签到天数',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_user_date (user_id, checkin_date),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
