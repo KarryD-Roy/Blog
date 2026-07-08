@@ -45,19 +45,24 @@
 
         <div class="recommendation-list">
           <h3>📚 相关文章</h3>
-           <!-- Correctly implementing list rendering based on backend response shape -->
-           <!-- The backend returns Map<String, Object> where one key is likely "related_chunks" or similar list -->
-           <!-- Let's assume the response structure based on AiService/Controller -->
 
           <div v-if="recommendations.related_chunks && recommendations.related_chunks.length > 0" class="chunk-list">
-             <div v-for="(item, index) in recommendations.related_chunks" :key="index" class="chunk-item" @click="item.metadata ? goToArticle(item.metadata.article_id) : null" style="cursor: pointer;">
-                <div v-if="item.metadata" class="chunk-meta">
-                   <span class="chunk-title">
-                     {{ item.metadata.title || '无标题文章' }}
-                   </span>
-                   <span class="chunk-score" v-if="item.score !== undefined">距离/差异值: {{ item.score.toFixed(3) }}</span>
+             <div
+                v-for="(item, index) in recommendations.related_chunks"
+                :key="index"
+                class="chunk-item"
+                @click="item.metadata ? goToArticle(item.metadata.article_id) : null"
+              >
+                <div v-if="item.metadata" class="chunk-header">
+                   <h4 class="chunk-title">{{ item.metadata.title || '无标题文章' }}</h4>
+                   <div v-if="item.metadata.tags" class="chunk-tags">
+                     <span v-for="tag in item.metadata.tags.split(',')" :key="tag" class="tag">{{ tag.trim() }}</span>
+                   </div>
                 </div>
-                <p class="chunk-content">{{ item.content }}...</p>
+                <p class="chunk-content">{{ item.content }}</p>
+                <div class="chunk-footer">
+                  <span class="read-more">阅读全文 →</span>
+                </div>
              </div>
           </div>
           <div v-else class="no-results">
@@ -391,6 +396,7 @@ input::placeholder {
   border-radius: 0;
   transition: all 0.2s ease;
   position: relative;
+  cursor: pointer;
 }
 
 .chunk-item:hover {
@@ -399,16 +405,13 @@ input::placeholder {
   box-shadow: 8px 8px 0 rgba(204, 255, 0, 0.3);
 }
 
-.chunk-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.chunk-header {
   margin-bottom: 1.5rem;
   border-bottom: 2px solid #333;
   padding-bottom: 1rem;
 }
 
-.chunk-item:hover .chunk-meta {
+.chunk-item:hover .chunk-header {
   border-color: #ccff00;
 }
 
@@ -417,36 +420,58 @@ input::placeholder {
   font-weight: 800;
   font-size: 1.4rem;
   color: #fafafa;
-  text-decoration: none;
-  transition: color 0.2s;
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
   text-transform: uppercase;
+  transition: color 0.2s;
 }
 
-.chunk-title:hover {
+.chunk-item:hover .chunk-title {
   color: #ccff00;
 }
 
-.chunk-score {
+.chunk-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chunk-tags .tag {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: #09090b;
   background: #ccff00;
-  padding: 0.4rem 0.8rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 0;
   font-weight: bold;
+  text-transform: uppercase;
 }
 
 .chunk-content {
   color: #a1a1aa;
   font-family: 'Manrope', sans-serif;
   font-size: 1.05rem;
-  line-height: 1.7;
-  margin: 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.8;
+  margin: 0 0 1.5rem 0;
+  white-space: pre-wrap;
+}
+
+.chunk-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.read-more {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: #ccff00;
+  font-weight: bold;
+  text-transform: uppercase;
+  transition: transform 0.2s;
+}
+
+.chunk-item:hover .read-more {
+  transform: translateX(4px);
 }
 
 .no-results {

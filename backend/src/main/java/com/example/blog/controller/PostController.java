@@ -8,8 +8,8 @@ import com.example.blog.config.SearchProperties;
 import com.example.blog.entity.Post;
 import com.example.blog.search.PostSearchService;
 import com.example.blog.security.UserContext;
-import com.example.blog.service.AiService;
 import com.example.blog.service.PostService;
+import com.example.blog.service.KnowledgeBaseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -34,7 +34,7 @@ public class PostController {
     private final PostService postService;
     private final PostSearchService postSearchService;
     private final SearchProperties searchProperties;
-    private final AiService aiService;
+    private final KnowledgeBaseService knowledgeBaseService;
 
     @Cacheable(cacheNames = "posts:list", key = "'p'+#page+'_'+#size")
     @GetMapping
@@ -181,7 +181,7 @@ public class PostController {
         postService.savePostWithSkills(post);
         postSearchService.index(post);
         try {
-             aiService.ingestArticle(post.getId());
+             knowledgeBaseService.syncArticle(post.getId());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -203,7 +203,7 @@ public class PostController {
         postService.updatePostWithSkills(post);
         postSearchService.index(post);
         try {
-             aiService.ingestArticle(post.getId());
+             knowledgeBaseService.syncArticle(post.getId());
         } catch (Exception e) {
              e.printStackTrace();
         }

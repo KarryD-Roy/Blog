@@ -1,13 +1,13 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
 INSERT IGNORE INTO roles (name) VALUES
 ('ADMIN'),
 ('USER');
 
-INSERT IGNORE INTO users (username, password, email, nickname, avatar, bio, enabled) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVEFDi', 'admin@blog.com', 'Karry', 'https://api.dicebear.com/7.x/adventurer/svg?seed=admin', '博客站长 · 全栈开发者', 1);
-
-INSERT IGNORE INTO user_roles (user_id, role_id) VALUES
-(1, 1),
-(1, 2);
+-- 注意：用户(admin / user)与角色关联改由应用启动时的 DataInitConfig 统一创建，
+-- 使用 BCryptPasswordEncoder(10) 对 admin123 / user123 加密，确保哈希与 SecurityConfig 完全一致。
+-- 上方已临时关闭外键检查，允许 posts / comments 等依赖 user_id=1 的种子数据在用户创建前插入，
+-- DataInitConfig 会自动以 id=1 创建 admin 用户，外键随后自然满足。
 
 INSERT INTO skills (category, title, description, pinned, user_id, status, parent_id, x_axis, y_axis, version) VALUES
 ('编程语言与基础能力', 'Java 及面向对象基础', '### 核心理论
@@ -175,3 +175,5 @@ INSERT INTO theories (skill_id, content) VALUES
 (8, '## 测试体系构建\n\n### JUnit 5 架构\nJUnit 5 = JUnit Platform（运行基础） + JUnit Jupiter（新编程模型） + JUnit Vintage（兼容 JUnit 3/4）。核心注解：`@Test`/`@BeforeEach`/`@AfterEach`/`@BeforeAll`/`@AfterAll`/`@DisplayName`/`@ParameterizedTest`。\n\n### Mockito 核心\n- `@Mock`：创建模拟对象，方法调用返回默认值\n- `@InjectMocks`：自动注入模拟依赖\n- `when().thenReturn()`：设置方法行为\n- `verify()`：验证方法调用次数和参数\n- `@Spy`：部分模拟，保留真实行为\n\n### 测试覆盖率\n使用 JaCoCo 插件生成覆盖率报告，关注：行覆盖率、分支覆盖率、方法覆盖率。实践建议：核心业务逻辑 > 80%，工具类 100%，控制器层重点测试异常路径。\n\n### API 测试工具\n- **Postman**：图形化接口测试，支持环境变量、前置脚本、集合运行器\n- **Apifox**：API 文档、调试、Mock、测试一体化\n- **JMeter**：性能压测，配置线程组/HTTP 请求/监听器，支持分布式压测'),
 (9, '## 分布式系统理论\n\n### CAP 定理\n在一个分布式系统中，一致性（Consistency）、可用性（Availability）、分区容错性（Partition Tolerance）三者不可同时满足。\n- **CP**：发生网络分区时牺牲可用性保证一致性（如 ZooKeeper）\n- **AP**：牺牲一致性保证可用性（如 Eureka）\n- 在实际系统中，通常会根据场景做取舍，如通过最终一致性（BASE）来平衡\n\n### 分布式锁\n1. **Redis 实现**：`SET NX PX` 原子命令 + Lua 脚本释放，Redisson 提供看门狗自动续期\n2. **ZooKeeper 实现**：临时顺序节点 + Watcher 机制，天然支持阻塞等待\n3. **数据库实现**：基于唯一索引，性能较差一般不推荐\n\n### 微服务治理\n- **服务注册与发现**：Nacos/Consul/Eureka\n- **配置中心**：Nacos/Apollo，支持动态刷新\n- **网关**：Spring Cloud Gateway/Zuul，统一鉴权和限流\n- **熔断降级**：Sentinel/Resilience4j，防止级联故障\n- **分布式事务**：Seata（AT/TCC/Saga 模式）'),
 (10, '## Git 协作与 CI/CD\n\n### Git 分支策略\n- **Git Flow**：main（生产）+ develop（开发）+ feature/release/hotfix 分支，适合有固定发布周期的项目\n- **GitHub Flow**：main + feature 分支，通过 PR 合并，适合持续部署\n- **Trunk-Based**：所有开发者直接在主干提交，通过 Feature Flag 控制功能开关\n\n### 常用 Git 操作\n`git rebase` 将分支变基到目标分支，保持提交历史整洁线性；`git merge` 保留分支历史但产生合并提交。`git stash` 暂存未提交修改。`git cherry-pick` 选择特定提交应用到当前分支。\n\n### CI/CD 流水线\n1. **CI（持续集成）**：代码提交后自动触发构建、单元测试、代码扫描\n2. **CD（持续交付/部署）**：通过测试后自动部署到预发布/生产环境\n3. 工具链：GitHub Actions / GitLab CI / Jenkins + Docker + Kubernetes\n\n### Code Review 最佳实践\n关注逻辑正确性、代码可读性、安全漏洞、性能问题。建议 PR 粒度控制在 200 行以内。使用 Conventional Commits 规范提交信息（如 `feat:`/`fix:`/`refactor:`）。');
+
+SET FOREIGN_KEY_CHECKS = 1;

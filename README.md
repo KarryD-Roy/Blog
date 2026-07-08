@@ -52,7 +52,16 @@ Blog/
 │       ├── main.js                   # 入口
 │       └── styles.css                # 全局暗色主题样式
 ├── ai_service/                       # Python AI 服务
-├── nginx.conf                        # Nginx 部署配置
+│   ├── services/
+│   │   ├── kb_import_service.py       # 知识库批量导入服务（并发/重试/验证）
+│   │   ├── model_service.py           # 通义千问大模型服务
+│   │   └── rag_service.py             # ChromaDB RAG 向量库服务
+│   ├── main.py                        # FastAPI 入口
+│   ├── Dockerfile
+│   └── requirements.txt
+├── sync_deploy.sh                     # Linux/Mac 自动化同步部署脚本
+├── sync_deploy.bat                    # Windows 自动化同步部署脚本
+├── nginx.conf                         # Nginx 部署配置
 ├── plan-blogMultiUserRefactoring.prompt.md  # 多用户改造设计文档
 └── README.md
 ```
@@ -343,7 +352,7 @@ PUT  /api/admin/review/skills/{id}    审核技能（Body: status, reason?）
 
 ---
 
-## 数据库表结构（共 12 张表）
+## 数据库表结构（共 13 张表）
 
 | 表名 | 说明 | 新增/变更 |
 |------|------|-----------|
@@ -353,6 +362,7 @@ PUT  /api/admin/review/skills/{id}    审核技能（Body: status, reason?）
 | `messages` | 站内信通知 | 🆕 本次新增 |
 | `comments` | 文章评论（支持嵌套） | 🆕 本次新增 |
 | `post_likes` | 文章点赞（唯一约束防重复） | 🆕 本次新增 |
+| `import_tasks` | 知识库批量导入任务追踪 | 🆕 知识库导入新增 |
 | `posts` | 文章表 | 🔄 新增 `user_id`, `status` 字段 |
 | `skills` | 技能树节点 | 🔄 新增 `user_id`, `status` 字段 |
 | `categories` | 文章分类 | — 未变更 |
@@ -487,6 +497,160 @@ src/views/
 - **AI 总结**：文章详情页点击 "✨ AI 一键总结"，通过 SSE 流式输出摘要，支持思考过程可视化
 - **AI 写作助手**：集成阿里 **Qwen-Max** 旗舰模型，前端支持风格选择与暗色玻璃拟态界面
 - **RAG 检索**：文章发布/更新自动同步至 ChromaDB 向量数据库，支持语义相似文章推荐
+- **📦 知识库批量导入**：支持将现有全部文章一键导入向量知识库，详见下方章节
+
+---
+
+## 知识库批量导入
+
+提供完整的文章批量导入向量知识库功能，支持进度追踪、错误重试、并发处理与完整性验证。
+
+### 快速使用
+
+```bash
+# 1. 启动全量导入（返回 taskId）
+curl -X POST http://localhost:8080/api/knowledge-base/import
+
+# 2. 实时查询导入进度
+curl http://localhost:8080/api/knowledge-base/import/status/{taskId}
+
+# 3. 获取导入完成报告
+curl http://localhost:8080/api/knowledge-base/import/report/{taskId}
+
+# 4. 取消正在进行的导入
+curl -X POST http://localhost:8080/api/knowledge-base/import/cancel/{taskId}
+
+# 5. 手动验证导入完整性
+curl -X POST http://localhost:8080/api/knowledge-base/import/verify/{taskId}
+```
+
+### 核心特性
+
+| 特性 | 说明 |
+|------|------|
+| 分批并发 | 每批 20 篇文章，3 批次并发处理，避免内存溢出 |
+| 指数退避重试 | 失败批次自动重试 3 次，间隔 1s → 2s → 4s |
+| 错误隔离 | 单篇/单批次失败不影响整体，错误详情记录到日志 |
+| 进度追踪 | 实时返回已处理/成功/失败数、进度百分比、预估剩余时间 |
+| 任务取消 | 支持随时取消，已完成批次结果不丢失 |
+| 完整性验证 | 导入完成后自动对比向量库文档数与成功导入数 |
+| 持久化记录 | 任务状态写入 `import_tasks` 表，服务重启后仍可追溯 |
+
+### API 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/knowledge-base/import` | 启动全量导入任务 |
+| `GET` | `/api/knowledge-base/import/status/{taskId}` | 查询导入进度 |
+| `GET` | `/api/knowledge-base/import/report/{taskId}` | 获取最终导入报告 |
+| `POST` | `/api/knowledge-base/import/cancel/{taskId}` | 取消导入任务 |
+| `POST` | `/api/knowledge-base/import/verify/{taskId}` | 手动验证完整性 |
+
+### 进度响应示例
+
+```json
+{
+  "code": 0,
+  "data": {
+    "taskId": "a1b2c3d4-...",
+    "status": "RUNNING",
+    "totalCount": 156,
+    "processedCount": 80,
+    "successCount": 78,
+    "failedCount": 2,
+    "currentBatch": 4,
+    "totalBatches": 8,
+    "progressPercent": 51,
+    "estimatedSecondsRemaining": 45
+  }
+}
+```
+
+### AI 服务增强端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/ai/import/concurrent` | AI 侧并发批量导入 |
+| `GET` | `/api/ai/import/progress/{task_id}` | AI 侧进度查询 |
+| `POST` | `/api/ai/import/cancel/{task_id}` | AI 侧任务取消 |
+| `POST` | `/api/ai/import/verify` | 验证指定文章在向量库中的存在性 |
+| `POST` | `/api/ai/import/reset` | ⚠️ 重置知识库（清空重新导入前使用） |
+
+---
+
+## 自动化同步部署
+
+本地代码变更后，一键重建 Docker 镜像并部署至容器，无需手动操作远程仓库。
+
+### Shell 脚本（Linux / macOS / Git Bash）
+
+```bash
+# 赋予执行权限（首次使用）
+chmod +x sync_deploy.sh
+
+# 全量同步部署
+./sync_deploy.sh
+
+# 指定镜像标签
+./sync_deploy.sh -t v1.3.0
+
+# 跳过 AI 服务
+./sync_deploy.sh --no-ai
+
+# 仅构建，不重启容器
+./sync_deploy.sh --skip-restart
+
+# 预览模式（不实际执行）
+./sync_deploy.sh --dry-run
+```
+
+### Windows 批处理
+
+```cmd
+REM 全量同步部署
+sync_deploy.bat
+
+REM 指定镜像标签
+sync_deploy.bat -tag v1.3.0
+
+REM 跳过 AI 服务
+sync_deploy.bat -no-ai
+
+REM 预览模式
+sync_deploy.bat -dry-run
+```
+
+### 选项说明
+
+| 选项 | 说明 |
+|------|------|
+| `-t`, `-tag <tag>` | Docker 镜像标签（默认：`latest`） |
+| `--dry-run` / `-dry-run` | 仅预览操作步骤，不实际执行 |
+| `--no-backend` / `-no-backend` | 跳过构建后端镜像 |
+| `--no-frontend` / `-no-frontend` | 跳过构建前端镜像 |
+| `--no-ai` / `-no-ai` | 跳过构建 AI 服务镜像 |
+| `--skip-restart` / `-skip-restart` | 仅构建镜像，不重启容器 |
+
+### 执行流程
+
+```
+[1/4] 环境检查          → docker / docker compose 就绪性验证
+[2/4] Docker 镜像构建   → 后端 → 前端 → AI 服务（可单独跳过）
+[3/4] 镜像标签管理      → latest + 时间戳双重标签
+[4/4] 容器部署          → up --force-recreate（仅重启已构建的服务）
+```
+
+### 特性
+
+| 特性 | 说明 |
+|------|------|
+| 错误即停 | 任何构建失败立即终止，输出详细错误信息 |
+| 日志持久化 | 每次执行生成 `deploy_YYYYMMDD_HHMMSS.log` |
+| 按需构建 | 支持 `--no-backend` / `--no-frontend` / `--no-ai` 跳过指定服务 |
+| 仅构建模式 | `--skip-restart` 只构建镜像不重启容器，适合预构建 |
+| Docker BuildKit | 利用 BuildKit 内联缓存加速重复构建 |
+| 标签管理 | 自动打 `latest` + 时间戳双标签，方便版本回滚 |
+| Dry-run | `--dry-run` 安全预览全部操作 |
 
 ---
 

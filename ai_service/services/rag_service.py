@@ -48,18 +48,20 @@ class RAGService:
                     self.vector_store = Chroma(
                         client=self.client,
                         collection_name=self.collection_name,
-                        embedding_function=self.embeddings
+                        embedding_function=self.embeddings,
+                        collection_metadata={"hnsw:space": "cosine"}
                     )
-                    logger.info("ChromaDB initialized with PersistentClient at %s, collection=%s",
+                    logger.info("ChromaDB initialized with PersistentClient at %s, collection=%s (cosine distance)",
                                 self.persist_directory, self.collection_name)
                 else:
                     # Fallback to legacy initialization when PersistentClient is unavailable
                     self.vector_store = Chroma(
                         persist_directory=self.persist_directory,
                         embedding_function=self.embeddings,
-                        collection_name=self.collection_name
+                        collection_name=self.collection_name,
+                        collection_metadata={"hnsw:space": "cosine"}
                     )
-                    logger.info("ChromaDB initialized in legacy mode at %s, collection=%s",
+                    logger.info("ChromaDB initialized in legacy mode at %s, collection=%s (cosine distance)",
                                 self.persist_directory, self.collection_name)
             except Exception as exc:
                 logger.error("Failed to initialize ChromaDB vector store: %s", exc)
@@ -126,13 +128,24 @@ class RAGService:
             print(f"Skipping empty content for article {metadata.get('article_id')}")
             return 0
 
+        # 将标题和标签拼入正文，使其参与 embedding，提升主题类查询（如"前端文章"）的召回质量
+        title = metadata.get("title", "")
+        tags = metadata.get("tags", "")
+        parts = []
+        if title:
+            parts.append(f"标题: {title}")
+        if tags:
+            parts.append(f"标签: {tags}")
+        parts.append(content)
+        enriched_content = " | ".join(parts)
+
         text_splitter = RecursiveCharacterTextSplitter(
             separators=["\n\n", "\n", "。", "！", "？", "；", "，", " ", ""],
             chunk_size=500,
             chunk_overlap=50
         )
         # Create Document objects with metadata
-        docs = [Document(page_content=chunk, metadata=metadata) for chunk in text_splitter.split_text(content)]
+        docs = [Document(page_content=chunk, metadata=metadata) for chunk in text_splitter.split_text(enriched_content)]
         if not docs:
             print(f"No chunks created for article {metadata.get('article_id')}")
             return 0
@@ -147,6 +160,16 @@ class RAGService:
             raise RuntimeError(f"failed to add documents: {exc}") from exc
 
         return len(docs)
+
+    def delete_documents_by_article_id(self, article_id: str) -> None:
+        """根据文章ID删除已存在的向量片段，用于增量更新/去重。"""
+        if not self.vector_store or not article_id:
+            return
+        try:
+            self.vector_store._collection.delete(where={"article_id": article_id})
+            logger.info("已删除文章 %s 的旧向量片段", article_id)
+        except Exception as exc:
+            logger.warning("删除文章 %s 旧向量片段失败（可能不存在）: %s", article_id, exc)
 
     def search(self, query: str, k: int = 3) -> List[Document]:
         if not self.vector_store:

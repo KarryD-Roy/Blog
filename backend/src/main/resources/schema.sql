@@ -6,8 +6,9 @@ DROP TABLE IF EXISTS theories;
 DROP TABLE IF EXISTS post_skill_relation;
 DROP TABLE IF EXISTS skills;
 DROP TABLE IF EXISTS hot_news;
-DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS import_tasks;
 DROP TABLE IF EXISTS roles;
 DROP TABLE IF EXISTS users;
 
@@ -136,4 +137,22 @@ CREATE TABLE IF NOT EXISTS post_likes (
     UNIQUE KEY uk_post_user (post_id, user_id),
     FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 知识库批量导入任务表
+CREATE TABLE IF NOT EXISTS import_tasks (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_id VARCHAR(64) NOT NULL UNIQUE COMMENT '任务UUID',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/RUNNING/COMPLETED/FAILED/CANCELLED',
+    total_count INT DEFAULT 0 COMMENT '文章总数',
+    processed_count INT DEFAULT 0 COMMENT '已处理数',
+    success_count INT DEFAULT 0 COMMENT '成功数',
+    failed_count INT DEFAULT 0 COMMENT '失败数',
+    current_batch INT DEFAULT 0 COMMENT '当前批次',
+    total_batches INT DEFAULT 0 COMMENT '总批次数',
+    kb_document_count INT DEFAULT 0 COMMENT '知识库文档数(验证用)',
+    error_message TEXT COMMENT '错误信息',
+    started_at DATETIME COMMENT '开始时间',
+    completed_at DATETIME COMMENT '完成时间',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

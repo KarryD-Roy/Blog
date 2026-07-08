@@ -80,6 +80,44 @@ class IngestRequest(BaseModel):
 class BulkIngestRequest(BaseModel):
     articles: List[IngestRequest]
 
+class ImportTaskRequest(BaseModel):
+    """批量导入任务请求"""
+    articles: List[IngestRequest]
+    task_id: Optional[str] = None
+
+class ImportProgressResponse(BaseModel):
+    """导入进度响应"""
+    task_id: str
+    total: int
+    processed: int
+    success: int
+    failed: int
+    current_batch: int
+    total_batches: int
+    progress_percent: float
+    errors: List[dict] = []
+
+class ImportResultResponse(BaseModel):
+    """导入结果响应"""
+    status: str
+    ingested: int
+    skipped: int
+    failed: int
+    errors: List[dict] = []
+    duration_seconds: float = 0.0
+
+class VerifyRequest(BaseModel):
+    """验证请求"""
+    expected_article_ids: List[str]
+
+class VerifyResponse(BaseModel):
+    """验证响应"""
+    passed: bool
+    kb_document_count: int
+    expected_count: int
+    missing_ids: List[str] = []
+    message: str
+
 import sys
 import os
 
@@ -88,10 +126,12 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
 
 from services import ModelService, RAGService
+from services.kb_import_service import KnowledgeBaseImportService
 
 # --- Services ---
 model_service = ModelService()
 rag_service = RAGService()
+kb_import_service = KnowledgeBaseImportService(rag_service)
 
 def format_markdown_structure(text: str) -> str:
     """
@@ -458,7 +498,8 @@ def search_recommendations(query: str):
             "error": "rag_not_ready"
         }
 
-    results_with_score = rag_service.search_with_score(query, k=3)
+    # 获取更多候选结果，让 LLM 有选择空间
+    results_with_score = rag_service.search_with_score(query, k=5)
 
     # Extract titles and reasons
     if not results_with_score:
@@ -467,7 +508,7 @@ def search_recommendations(query: str):
             "related_chunks": []
         }
 
-    context_str = "\n".join([f"Article ID: {doc.metadata.get('article_id', 'Unknown')}\nTitle: {doc.metadata.get('title', 'Unknown')}\nContent: {doc.page_content[:300]}..." for doc, score in results_with_score])
+    context_str = "\n".join([f"标题: {doc.metadata.get('title', 'Unknown')}\n内容: {doc.page_content[:500]}..." for doc, score in results_with_score])
 
     prompt = (
         f"Query: {query}\n\n"
@@ -476,25 +517,85 @@ def search_recommendations(query: str):
         "Instructions:\n"
         "1. Strictly judge if each article is DIRECTLY related to the query. For example, if the query is 'MySQL', do NOT include articles exclusively about 'Redis'.\n"
         "2. Only recommend articles that have a clear relevance. If no results are highly relevant, say 'No highly relevant articles found'.\n"
-        "3. Provide the explanation in professional Chinese."
+        "3. Provide the explanation in professional Chinese, and explain WHY each recommended article is relevant.\n"
+        "4. When referring to articles, use their titles instead of any system IDs. Do not mention 'Article ID' or numeric IDs.\n"
+        "5. After the explanation, you MUST output a separate section titled 'RECOMMENDED_ARTICLES:' followed by a bullet list of EXACTLY the titles you recommend (copy titles from the Search Results).\n"
+        "   If you do not recommend any article, write 'RECOMMENDED_ARTICLES:\nNone'.\n"
+        "   Example:\n"
+        "   RECOMMENDED_ARTICLES:\n"
+        "   - 《Spring Cloud Gateway 网关节由与过滤器》\n"
+        "   - 文章标题二\n"
     )
-    explanation = model_service.generate_response(prompt)
+    raw_explanation = model_service.generate_response(prompt)
 
-    # Filter chips based on a stricter logic if needed, but here we trust the prompt for now
-    # We can also add a score threshold here
-    threshold = 0.4 # Adjust based on embedding model performance
+    # 将结构化推荐列表从解释文本中分离
+    if "RECOMMENDED_ARTICLES:" in raw_explanation:
+        explanation_text, _, recommended_section = raw_explanation.partition("RECOMMENDED_ARTICLES:")
+        explanation_text = explanation_text.strip()
+        recommended_section = recommended_section.strip()
+    else:
+        explanation_text = raw_explanation.strip()
+        recommended_section = ""
+
+    # 提取 LLM 推荐的标题
+    recommended_titles = []
+    if recommended_section and not recommended_section.lower().startswith("none"):
+        for line in recommended_section.split("\n"):
+            line = line.strip().lstrip("-*•").strip()
+            if line.startswith("《") and line.endswith("》"):
+                line = line[1:-1]
+            if line:
+                recommended_titles.append(line)
+
+    # 按推荐标题过滤检索结果，并去重
+    title_to_results = {}
+    for doc, score in results_with_score:
+        title = doc.metadata.get("title", "")
+        title_to_results.setdefault(title, []).append((doc, score))
+
+    related_chunks = []
+    seen_article_ids = set()
+
+    def _normalize(title: str) -> str:
+        return title.replace("《", "").replace("》", "").strip()
+
+    for rec_title in recommended_titles:
+        rec_norm = _normalize(rec_title)
+        if not rec_norm:
+            continue
+        for result_title, chunks in title_to_results.items():
+            result_norm = _normalize(result_title)
+            if rec_norm == result_norm or rec_norm in result_norm or result_norm in rec_norm:
+                for doc, score in chunks:
+                    article_id = doc.metadata.get("article_id")
+                    if article_id not in seen_article_ids:
+                        seen_article_ids.add(article_id)
+                        related_chunks.append({
+                            "content": doc.page_content,
+                            "metadata": doc.metadata,
+                            "score": float(score)
+                        })
+                break
+
+    # 如果 LLM 没有输出结构化推荐，则按原始向量相似度阈值兜底
+    if not related_chunks and not recommended_titles:
+        threshold = 0.6
+        for doc, score in results_with_score:
+            if score < threshold:
+                article_id = doc.metadata.get("article_id")
+                if article_id not in seen_article_ids:
+                    seen_article_ids.add(article_id)
+                    related_chunks.append({
+                        "content": doc.page_content,
+                        "metadata": doc.metadata,
+                        "score": float(score)
+                    })
 
     return {
-        "explanation": explanation,
-        "related_chunks": [
-             {
-                 "content": doc.page_content,
-                 "metadata": doc.metadata,
-                 "score": float(score)
-             }
-             for doc, score in results_with_score if score < threshold # Lower score in Chroma similarity_search_with_score means higher similarity
-        ]
+        "explanation": explanation_text,
+        "related_chunks": related_chunks
     }
+
 
 # --- Endpoints ---
 
@@ -512,6 +613,8 @@ async def ingest_article(request: IngestRequest):
         "tags": ",".join(request.tags)
     }
     try:
+        # 先删除该文章已有的向量片段，避免重复/过期数据
+        rag_service.delete_documents_by_article_id(request.article_id)
         rag_service.add_document(request.content, metadata)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -548,6 +651,68 @@ async def ingest_articles_bulk(request: BulkIngestRequest):
 
     return {"status": "success", "ingested": ingested, "skipped": skipped, "errors": errors}
 
+@app.post("/api/ai/import/concurrent")
+async def import_articles_concurrent(request: ImportTaskRequest):
+    """
+    并发批量导入文章到知识库
+    支持进度查询、错误重试、取消操作
+    """
+    if not rag_service.is_ready():
+        raise HTTPException(status_code=503, detail="RAG not ready. Check DASHSCOPE_API_KEY.")
+
+    articles = [article.model_dump() for article in request.articles]
+    result = await kb_import_service.import_articles_batch(
+        articles=articles,
+        task_id=request.task_id
+    )
+    return result.__dict__
+
+@app.get("/api/ai/import/progress/{task_id}")
+async def get_import_progress(task_id: str):
+    """查询导入任务进度"""
+    progress = kb_import_service.get_progress(task_id)
+    if progress is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found or completed")
+    return {
+        "task_id": task_id,
+        "total": progress.total,
+        "processed": progress.processed,
+        "success": progress.success,
+        "failed": progress.failed,
+        "current_batch": progress.current_batch,
+        "total_batches": progress.total_batches,
+        "progress_percent": round(progress.processed / max(progress.total, 1) * 100, 1),
+        "errors": progress.errors[-10:] if progress.errors else []  # 仅返回最近10条错误
+    }
+
+@app.post("/api/ai/import/cancel/{task_id}")
+async def cancel_import(task_id: str):
+    """取消正在进行的导入任务"""
+    cancelled = kb_import_service.cancel_task(task_id)
+    return {"status": "success" if cancelled else "error", "task_id": task_id, "cancelled": cancelled}
+
+@app.post("/api/ai/import/verify")
+async def verify_import_integrity(request: VerifyRequest):
+    """
+    验证知识库中的文章完整性
+    检查指定文章的 article_id 是否存在于向量库中
+    """
+    if not rag_service.is_ready():
+        raise HTTPException(status_code=503, detail="RAG not ready.")
+    result = kb_import_service.verify_import(request.expected_article_ids)
+    return result
+
+@app.post("/api/ai/import/reset")
+async def reset_knowledge_base():
+    """
+    重置知识库（危险操作，会删除所有已导入文档）
+    用于在重新全量导入前清理旧数据
+    """
+    result = kb_import_service.reset_knowledge_base()
+    if result["status"] == "error":
+        raise HTTPException(status_code=500, detail=result.get("message", "Reset failed"))
+    return result
+
 @app.get("/api/ai/rag/status")
 async def rag_status():
     """
@@ -575,15 +740,15 @@ async def search_articles(request: RecommendationRequest):
     if not rag_service.is_ready():
         raise HTTPException(status_code=503, detail="RAG not ready. Check DASHSCOPE_API_KEY.")
 
-    results = rag_service.search(request.query, k=5)
+    results = rag_service.search_with_score(request.query, k=5)
     return {
         "results": [
             {
                 "content": doc.page_content,
                 "metadata": doc.metadata,
-                "score": 0.0 # Simplify score for now
+                "score": float(score)
             }
-            for doc in results
+            for doc, score in results
         ]
     }
 
