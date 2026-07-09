@@ -108,7 +108,7 @@
                 # {{ tag }}
               </span>
             </p>
-            <div class="card-meta" style="margin-top: 0.6rem">
+            <div v-if="isOwner(post)" class="card-meta" style="margin-top: 0.6rem">
               <button
                 class="btn ghost"
                 style="font-size: 0.8rem"
@@ -283,7 +283,9 @@ defineOptions({
 
 const router = useRouter();
 const route = useRoute();
-const { isAuthenticated } = useAuth();
+const { isAuthenticated, user } = useAuth();
+const currentUserId = computed(() => user.value?.id);
+const isOwner = (post) => currentUserId.value && post.userId === currentUserId.value;
 const posts = ref([]);
 const categories = ref([]);
 const skills = ref([]);

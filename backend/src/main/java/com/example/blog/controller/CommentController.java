@@ -1,6 +1,7 @@
 package com.example.blog.controller;
 
 import com.example.blog.dto.CommentRequest;
+import com.example.blog.dto.CommentVo;
 import com.example.blog.entity.Comment;
 import com.example.blog.security.UserContext;
 import com.example.blog.service.CommentService;
@@ -20,7 +21,7 @@ public class CommentController {
     }
 
     @GetMapping
-    public ApiResponse<List<Comment>> list(@PathVariable Long postId) {
+    public ApiResponse<List<CommentVo>> list(@PathVariable Long postId) {
         return ApiResponse.ok(commentService.getCommentsByPost(postId));
     }
 

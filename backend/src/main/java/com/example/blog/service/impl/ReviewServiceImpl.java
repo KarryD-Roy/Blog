@@ -51,7 +51,7 @@ public class ReviewServiceImpl implements ReviewService {
         postMapper.update(null, wrapper);
 
         // 始终直接创建消息通知（确保作者必收到，不依赖 RabbitMQ 可用性）
-        createNotification(post.getUserId(), post.getTitle(), status, reason, postId);
+        createNotification(post.getUserId(), post.getTitle(), status, reason, postId, "POST");
 
         // 异步尝试通过 RabbitMQ 发送（用于扩展场景如邮件推送等），失败不主流程
         try {
@@ -84,7 +84,7 @@ public class ReviewServiceImpl implements ReviewService {
         skillMapper.update(null, wrapper);
 
         // 始终直接创建消息通知（确保作者必收到）
-        createNotification(skill.getUserId(), skill.getTitle(), status, reason, skillId);
+        createNotification(skill.getUserId(), skill.getTitle(), status, reason, skillId, "SKILL");
 
         // 异步尝试通过 RabbitMQ 发送（扩展场景），失败不影响主流程
         try {
@@ -116,7 +116,7 @@ public class ReviewServiceImpl implements ReviewService {
         return skillMapper.selectList(wrapper);
     }
 
-    private void createNotification(Long userId, String title, String status, String reason, Long relatedId) {
+    private void createNotification(Long userId, String title, String status, String reason, Long relatedId, String reviewType) {
         if (userId == null) return;
         Message msg = new Message();
         msg.setRecipientId(userId);
@@ -124,16 +124,31 @@ public class ReviewServiceImpl implements ReviewService {
         msg.setType("REVIEW");
         msg.setIsRead(false);
 
+        String typeName = "SKILL".equalsIgnoreCase(reviewType) ? "技能" : "文章";
+        String typeTag = "SKILL".equalsIgnoreCase(reviewType) ? "SKILL" : "POST";
+        String cleanReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : null;
+
         if ("APPROVED".equalsIgnoreCase(status)) {
-            msg.setTitle("文章审核通过");
-            msg.setContent("恭喜！您的文章《" + title + "》已通过审核并正式发布。");
+            msg.setTitle("[" + typeTag + "] 审核通过：" + typeName + "《" + title + "》");
+            msg.setContent("您好，您的" + typeName + "《" + title + "》已通过管理员审核，现已正式发布。感谢您对社区优质内容的贡献。");
         } else if ("REJECTED".equalsIgnoreCase(status)) {
-            msg.setTitle("文章审核未通过");
-            msg.setContent("很遗憾，您的文章《" + title + "》未通过审核。" +
-                    (reason != null && !reason.isEmpty() ? "原因：" + reason : "请修改后重新提交。"));
+            msg.setTitle("[" + typeTag + "] 审核未通过：" + typeName + "《" + title + "》");
+            StringBuilder content = new StringBuilder();
+            content.append("您好，您的").append(typeName).append("《").append(title).append("》未能通过审核。");
+            if (cleanReason != null) {
+                content.append("未通过原因：").append(cleanReason).append("。");
+            }
+            content.append("建议您根据审核意见修改后重新提交，如有疑问可联系管理员。");
+            msg.setContent(content.toString());
         } else {
-            msg.setTitle("审核结果: " + title);
-            msg.setContent(status + (reason != null && !reason.isEmpty() ? ": " + reason : ""));
+            msg.setTitle("[" + typeTag + "] 审核状态更新：" + typeName + "《" + title + "》");
+            StringBuilder content = new StringBuilder();
+            content.append("您好，您的").append(typeName).append("《").append(title).append("》的审核状态已更新为：").append(status).append("。");
+            if (cleanReason != null) {
+                content.append("补充说明：").append(cleanReason).append("。");
+            }
+            content.append("请登录个人中心查看详情。");
+            msg.setContent(content.toString());
         }
 
         messageService.sendMessage(msg);

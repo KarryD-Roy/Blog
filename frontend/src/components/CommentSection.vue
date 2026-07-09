@@ -7,7 +7,7 @@
       <textarea
         v-model="newComment"
         class="input comment-textarea"
-        :placeholder="replyTo ? `回复 @${replyTo.username || ''}` : '写下你的评论...'"
+        :placeholder="replyTo ? `回复 @${replyTo.nickname || ''}` : '写下你的评论...'"
         rows="3"
       ></textarea>
       <div class="comment-actions">
@@ -92,8 +92,8 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { getComments, addComment, deleteComment } from '../../api/comments.js';
-import { useAuth } from '../../stores/auth.js';
+import { getComments, addComment, deleteComment } from '../api/comments.js';
+import { useAuth } from '../stores/auth.js';
 
 const props = defineProps({
   postId: { type: Number, required: true }
@@ -112,11 +112,11 @@ const topLevelComments = computed(() => comments.value.filter(c => !c.parentId))
 const getReplies = (parentId) => comments.value.filter(c => c.parentId === parentId);
 
 const getInitial = (c) => {
-  if (c.username) return c.username.charAt(0).toUpperCase();
+  if (c.nickname) return c.nickname.charAt(0).toUpperCase();
   return 'U';
 };
 
-const getAuthorName = (c) => c.nickname || c.username || `用户#${c.userId}`;
+const getAuthorName = (c) => c.nickname || c.username || '未知用户';
 const formatTime = (t) => t ? String(t).replace('T', ' ').slice(0, 16) : '';
 const canDelete = (c) => user.value && (user.value.id === c.userId ||
   (user.value.roles && user.value.roles.includes('ADMIN')));

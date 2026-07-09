@@ -5,11 +5,15 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.blog.config.SearchProperties;
+import com.example.blog.dto.UserProfileVo;
+import com.example.blog.entity.Message;
 import com.example.blog.entity.Post;
 import com.example.blog.search.PostSearchService;
 import com.example.blog.security.UserContext;
+import com.example.blog.service.MessageService;
 import com.example.blog.service.PostService;
 import com.example.blog.service.KnowledgeBaseService;
+import com.example.blog.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -34,6 +38,8 @@ public class PostController {
     private final PostSearchService postSearchService;
     private final SearchProperties searchProperties;
     private final KnowledgeBaseService knowledgeBaseService;
+    private final UserService userService;
+    private final MessageService messageService;
 
     @Cacheable(cacheNames = "posts:list", key = "'p'+#page+'_'+#size")
     @GetMapping
@@ -190,12 +196,40 @@ public class PostController {
         post.setViewCount(0);
         postService.savePostWithSkills(post);
         postSearchService.index(post);
+
+        // 普通用户提交的文章进入待审核状态后，自动通知所有管理员及时处理
+        if ("PENDING".equals(post.getStatus())) {
+            notifyAdminsOfPendingPost(post);
+        }
+
         try {
              knowledgeBaseService.syncArticle(post.getId());
         } catch (Exception e) {
             e.printStackTrace();
         }
         return ApiResponse.ok(post);
+    }
+
+    private void notifyAdminsOfPendingPost(Post post) {
+        try {
+            List<UserProfileVo> allUsers = userService.getAllUsers();
+            for (UserProfileVo user : allUsers) {
+                if (user.getRoles() != null && user.getRoles().contains("ADMIN")) {
+                    Message msg = new Message();
+                    msg.setRecipientId(user.getId());
+                    msg.setSenderId(post.getUserId());
+                    msg.setTitle("新文章待审核");
+                    msg.setContent("用户提交了待审核文章《" + post.getTitle() + "》，请及时处理。");
+                    msg.setType("REVIEW");
+                    msg.setIsRead(false);
+                    msg.setRelatedPostId(post.getId());
+                    messageService.sendMessage(msg);
+                }
+            }
+        } catch (Exception e) {
+            // 通知发送失败不应影响文章发布主流程
+            e.printStackTrace();
+        }
     }
 
     @CacheEvict(cacheNames = "posts:list", allEntries = true)
