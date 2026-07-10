@@ -1,7 +1,7 @@
 <template>
   <div class="page ai-recommendation-page">
     <div class="page-header">
-      <h1><span class="emoji">🧠</span> <span class="text">AI 智能推荐</span></h1>
+      <h1><span class="text">AI 智能推荐</span></h1>
       <p class="subtitle">告诉我你想了解什么，AI 为你精准匹配并解读</p>
     </div>
 
@@ -14,7 +14,7 @@
           placeholder="例如：'如何使用 Spring Security 实现 OAuth2？' 或 '推荐几篇关于微服务的文章'"
         />
         <button class="btn primary" @click="getRecommendations" :disabled="loading || !query.trim()">
-          🔍 搜索
+          搜索
         </button>
       </div>
     </div>
@@ -28,12 +28,12 @@
       <div v-else-if="recommendations" class="results-content">
         <div class="ai-explanation-card">
           <div class="card-header">
-            <h3>🤖 AI 的推荐理由</h3>
+            <h3>AI 的推荐理由</h3>
           </div>
           <div class="card-body">
             <div v-if="thinkingProcess" class="thinking-box" style="margin-bottom: 1rem;">
                 <details>
-                    <summary>🤔 深度思考过程 (点击展开/收起)</summary>
+                    <summary>深度思考过程 (点击展开/收起)</summary>
                     <div class="thinking-content markdown-body" v-render-markdown="thinkingProcess">
                     </div>
                 </details>
@@ -44,7 +44,7 @@
         </div>
 
         <div class="recommendation-list">
-          <h3>📚 相关文章</h3>
+          <h3>相关文章</h3>
 
           <div v-if="recommendations.related_chunks && recommendations.related_chunks.length > 0" class="chunk-list">
              <div
@@ -232,6 +232,21 @@ onMounted(() => {
 
 .header h1 .text {
   color: #ccff00;
+}
+
+.page-header h1 .text {
+  color: #ccff00;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.page-header h1 .text::before {
+  content: '';
+  width: 0.55em;
+  height: 0.55em;
+  background: #ccff00;
+  transform: rotate(45deg);
+  box-shadow: 0 0 12px rgba(204, 255, 0, 0.5);
 }
 
 .subtitle {

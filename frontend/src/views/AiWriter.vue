@@ -1,7 +1,7 @@
 <template>
   <div class="page ai-writer-page">
     <div class="page-header">
-      <h1><span class="emoji">🤖</span> <span class="text">AI 写作助手</span></h1>
+      <h1><span class="text">AI 写作助手</span></h1>
       <p class="subtitle">输入素材，选择风格，让 AI 为你生成初稿</p>
     </div>
 
@@ -33,7 +33,7 @@
             </div>
           </div>
           <button class="btn primary" @click="generateDraft" :disabled="loading || !materials.trim()">
-            {{ loading ? '深度思考中...' : '✨ 生成草稿' }}
+            {{ loading ? '深度思考中...' : '生成草稿' }}
           </button>
         </div>
       </div>
@@ -42,7 +42,7 @@
         <div class="section-header">
           <h3>生成结果</h3>
           <div class="meta-info" v-if="totalTime && !loading">
-             <span class="time-tag">⏱️ 耗时: {{ totalTime }}</span>
+             <span class="time-tag">耗时: {{ totalTime }}</span>
           </div>
           <div class="actions" v-if="draft">
             <button class="btn small" @click="toggleMaximize">
@@ -55,7 +55,7 @@
 
         <div v-if="thinkingProcess" class="thinking-box">
             <details :open="loading">
-                <summary>🤔 深度思考过程 (点击展开/收起)</summary>
+                <summary>深度思考过程 (点击展开/收起)</summary>
                 <div class="thinking-content markdown-body" v-render-markdown="thinkingProcess">
                 </div>
             </details>
@@ -318,6 +318,17 @@ const saveAsPost = () => {
 }
 .page-header h1 .text {
   color: #ccff00;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.page-header h1 .text::before {
+  content: '';
+  width: 0.55em;
+  height: 0.55em;
+  background: #ccff00;
+  transform: rotate(45deg);
+  box-shadow: 0 0 12px rgba(204, 255, 0, 0.5);
 }
 .subtitle {
   color: #a1a1aa;

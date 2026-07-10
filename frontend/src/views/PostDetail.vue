@@ -11,13 +11,12 @@
       <p class="card-summary">{{ post.summary }}</p>
 
       <div class="ai-summary-section">
-        <button v-if="!summaryLoading && !rawSummary" @click="generateSummary" class="btn primary small">✨ AI 一键总结</button>
+        <button v-if="!summaryLoading && !rawSummary" @click="generateSummary" class="btn primary small">AI 一键总结</button>
         <div v-if="summaryLoading || rawSummary" class="ai-summary-box">
-          <h4>🤖 AI 智能总结</h4>
+          <h4>AI 智能总结</h4>
 
           <div v-if="thinkingProcess" class="thinking-process-container">
             <div class="thinking-header" @click="isThinkingExpanded = !isThinkingExpanded">
-              <span class="thinking-icon">🤔</span>
               <span class="thinking-title">思考过程</span>
               <span class="thinking-toggle">{{ isThinkingExpanded ? '收起' : '展开' }}</span>
             </div>

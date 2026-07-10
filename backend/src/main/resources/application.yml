@@ -67,5 +67,5 @@ ai:
 
 # JWT Configuration
 jwt:
-  secret: YourSuperSecretKeyForJWTTokenGenerationAndValidation2024!
-  expiration: 86400000
+  secret: ${JWT_SECRET:YourSuperSecretKeyForJWTTokenGenerationAndValidation2024!}
+  expiration: ${JWT_EXPIRATION:86400000}
