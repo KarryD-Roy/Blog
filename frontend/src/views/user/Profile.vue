@@ -6,7 +6,12 @@
     <div v-else-if="profile" class="profile-layout">
       <!-- Profile Card -->
       <div class="profile-card card">
-        <div class="avatar-placeholder">{{ displayInitial }}</div>
+        <div class="avatar-wrapper" @click="triggerAvatarInput" title="点击更换头像">
+          <img v-if="profile.avatar" :src="profile.avatar" class="avatar-img" alt="头像" />
+          <div v-else class="avatar-placeholder">{{ displayInitial }}</div>
+          <div class="avatar-overlay">更换头像</div>
+        </div>
+        <input ref="avatarInput" type="file" accept="image/*" class="hidden-file" @change="onAvatarSelected" />
         <h2 class="profile-name">{{ profile.nickname || profile.username }}</h2>
         <p class="profile-username">@{{ profile.username }}</p>
         <div class="profile-roles">
@@ -110,7 +115,7 @@
             </div>
             <div v-if="pendingPosts.length === 0" class="empty-state">暂无待审核文章</div>
             <div v-for="post in pendingPosts" :key="post.id" class="review-item">
-              <div class="review-info">
+              <div class="review-info" @click="goDetail(post.id)" title="点击查看文章详情">
                 <h4>{{ post.title }}</h4>
                 <p class="review-meta">作者ID: {{ post.userId }} · 状态: <span :class="'status-' + post.status">{{ post.status }}</span></p>
                 <p class="review-summary">{{ post.summary || '(无摘要)' }}</p>
@@ -247,6 +252,28 @@
             </form>
           </div>
         </div>
+
+        <!-- Avatar Crop Modal -->
+        <div v-if="showAvatarModal" class="modal-backdrop" @click.self="closeAvatarModal">
+          <div class="modal avatar-modal">
+            <h3>裁剪头像</h3>
+            <div class="crop-stage">
+              <img v-if="cropSrc" :src="cropSrc" ref="cropImgRef" class="crop-img" :style="{ transform: 'scale(' + cropZoom + ')' }" @load="onCropImgLoad" />
+              <div class="crop-frame"></div>
+            </div>
+            <div class="crop-controls">
+              <label>缩放</label>
+              <input type="range" min="1" max="3" step="0.01" v-model.number="cropZoom" />
+            </div>
+            <p class="crop-hint">框内区域将作为头像，可拖动滑块调整裁剪范围</p>
+            <div class="editor-actions">
+              <button class="btn primary" :disabled="uploadingAvatar" @click="confirmAvatar">
+                {{ uploadingAvatar ? '上传中...' : '确定' }}
+              </button>
+              <button type="button" class="btn ghost" @click="closeAvatarModal">取消</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     <div v-else class="center-text">请先登录</div>
@@ -259,12 +286,13 @@ import { useRouter } from 'vue-router';
 import { useAuth } from '../../stores/auth.js';
 import { getProfile, updateProfile, myPosts, checkIn as apiCheckIn, getCheckinStatus, assignRole as apiAssignRole } from '../../api/user.js';
 import { listPosts } from '../../api/posts.js';
+import { uploadToOss } from '../../api/oss.js';
 import { updatePost, deletePost } from '../../api/posts.js';
 import { getPendingPosts, reviewPost } from '../../api/admin.js';
 import api from '../../api/index.js';
 
 const router = useRouter();
-const { isAuthenticated, user } = useAuth();
+const { isAuthenticated, user, updateUser } = useAuth();
 
 // State
 const profile = ref(null);
@@ -382,6 +410,90 @@ const handleUpdateProfile = async () => {
     alert(e.response?.data?.message || '更新失败');
   }
   finally { updating.value = false; }
+};
+
+// Avatar upload with crop
+const avatarInput = ref(null);
+const showAvatarModal = ref(false);
+const cropSrc = ref('');
+const cropZoom = ref(1);
+const cropImgRef = ref(null);
+const cropImageEl = ref(null);
+const uploadingAvatar = ref(false);
+
+const triggerAvatarInput = () => avatarInput.value?.click();
+
+const onAvatarSelected = (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    cropSrc.value = reader.result;
+    cropZoom.value = 1;
+    showAvatarModal.value = true;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = ''; // 允许重新选择同一文件
+};
+
+const onCropImgLoad = (e) => { cropImageEl.value = e.target; };
+
+const closeAvatarModal = () => {
+  showAvatarModal.value = false;
+  cropSrc.value = '';
+  cropImageEl.value = null;
+};
+
+const confirmAvatar = () => {
+  const img = cropImageEl.value;
+  if (!img) return;
+  uploadingAvatar.value = true;
+  const OUT = 400;
+  const canvas = document.createElement('canvas');
+  canvas.width = OUT;
+  canvas.height = OUT;
+  const ctx = canvas.getContext('2d');
+  const natW = img.naturalWidth;
+  const natH = img.naturalHeight;
+  // 与预览一致：object-fit: contain + 居中 + 缩放
+  const scale = (OUT / Math.max(natW, natH)) * cropZoom.value;
+  const dW = natW * scale;
+  const dH = natH * scale;
+  const dx = (OUT - dW) / 2;
+  const dy = (OUT - dH) / 2;
+  ctx.drawImage(img, dx, dy, dW, dH);
+  canvas.toBlob(async (blob) => {
+    if (!blob) {
+      alert('裁剪失败，请重试');
+      uploadingAvatar.value = false;
+      return;
+    }
+    try {
+      const res = await uploadToOss(blob, 'avatar-' + Date.now() + '.jpg');
+      if (res.data.code === 0) {
+        const url = res.data.data;
+        const upd = await updateProfile({ avatar: url });
+        if (upd.data.code === 0) {
+          profile.value.avatar = url;
+          updateUser({ avatar: url });
+          closeAvatarModal();
+          alert('头像更新成功');
+        } else {
+          alert(upd.data.message || '头像更新失败');
+        }
+      } else {
+        alert(res.data.message || '上传失败');
+      }
+    } catch (err) {
+      alert('上传失败：' + (err.response?.data?.message || err.message));
+    } finally {
+      uploadingAvatar.value = false;
+    }
+  }, 'image/jpeg', 0.9);
 };
 
 // My posts
@@ -535,6 +647,89 @@ onActivated(() => {
   font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 1rem;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 80px; height: 80px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  cursor: pointer;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.avatar-wrapper:hover { border-color: #ccff00; }
+
+.avatar-img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.65);
+  color: #ccff00;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+  text-align: center;
+}
+
+.avatar-wrapper:hover .avatar-overlay { opacity: 1; }
+
+.hidden-file { display: none; }
+
+/* Avatar crop modal */
+.crop-stage {
+  width: 300px; height: 300px;
+  margin: 0 auto 1rem;
+  overflow: hidden;
+  position: relative;
+  background: #111;
+  border: 2px solid #333;
+}
+
+.crop-img {
+  width: 300px; height: 300px;
+  object-fit: contain;
+  transform-origin: center;
+  display: block;
+}
+
+.crop-frame {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed #ccff00;
+  pointer-events: none;
+}
+
+.crop-controls {
+  display: flex; align-items: center; gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.crop-controls label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+}
+
+.crop-controls input[type="range"] { flex: 1; accent-color: #ccff00; }
+
+.crop-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: #888;
+  text-align: center;
+  margin: 0 0 1.25rem;
 }
 
 .profile-name {
@@ -771,7 +966,23 @@ onActivated(() => {
   align-items: flex-start;
 }
 
-.review-info { flex: 1; min-width: 0; }
+.review-info {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  padding: 0.25rem;
+  margin: -0.25rem;
+  transition: all 0.2s;
+}
+
+.review-info:hover {
+  background: rgba(204, 255, 0, 0.05);
+}
+
+.review-info:hover h4 {
+  color: #ccff00;
+  text-decoration: underline;
+}
 
 .review-info h4 {
   font-family: 'Syne', sans-serif;
@@ -779,6 +990,8 @@ onActivated(() => {
   font-weight: 700;
   color: #fafafa;
   margin: 0 0 0.35rem;
+  display: inline-block;
+  transition: color 0.2s;
 }
 
 .review-meta {

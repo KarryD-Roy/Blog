@@ -72,6 +72,7 @@ public class CommentServiceImpl implements CommentService {
             vo.setCreatedAt(c.getCreatedAt());
             vo.setUsername(author != null ? author.getUsername() : null);
             vo.setNickname(author != null ? author.getNickname() : null);
+            vo.setAvatar(author != null ? author.getAvatar() : null);
             return vo;
         }).collect(Collectors.toList());
     }

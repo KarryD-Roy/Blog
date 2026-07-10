@@ -97,6 +97,23 @@ public class UserController {
     }
 
     /**
+     * 获取指定用户的公开主页信息（用于访客查看他人主页）
+     * 仅返回公开字段，不含邮箱等敏感信息
+     */
+    @GetMapping("/{id}")
+    public ApiResponse<UserProfileVo> getUserById(@PathVariable Long id) {
+        try {
+            UserProfileVo vo = userService.getUserById(id);
+            if (vo == null) {
+                return ApiResponse.error("用户不存在");
+            }
+            return ApiResponse.ok(vo);
+        } catch (RuntimeException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
      * ADMIN: 角色授权接口 - 将普通用户升级为ADMIN
      */
     @PutMapping("/{userId}/role/{roleName}")

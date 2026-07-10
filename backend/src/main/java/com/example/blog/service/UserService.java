@@ -14,6 +14,7 @@ public interface UserService {
     LoginResponse register(RegisterRequest request);
     LoginResponse login(LoginRequest request);
     UserProfileVo getProfile(Long userId);
+    UserProfileVo getUserById(Long id);
     UserProfileVo updateProfile(Long userId, UserProfileVo profileData);
     List<UserProfileVo> getAllUsers();
     IPage<Post> getMyPosts(Long userId, long page, long size, String status);

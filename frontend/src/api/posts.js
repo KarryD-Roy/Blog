@@ -19,3 +19,8 @@ export function updatePost(id, data) {
 export function deletePost(id) {
   return api.delete(`/posts/${id}`);
 }
+
+// 获取指定作者的公开文章列表（用于用户主页）
+export function getUserPosts(authorId, page = 1, size = 10) {
+  return api.get('/posts', { params: { page, size, authorId } });
+}

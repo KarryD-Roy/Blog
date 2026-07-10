@@ -39,6 +39,7 @@ public class SecurityConfig {
                 .requestMatchers("GET", "/api/theories/**").permitAll()
                 .requestMatchers("/api/ai/**").permitAll()
                 .requestMatchers("/api/oss/**").permitAll()
+                .requestMatchers("GET", "/api/users/*").permitAll()
                 // 需要认证的接口
                 .anyRequest().authenticated()
             )

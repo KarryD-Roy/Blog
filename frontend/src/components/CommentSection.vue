@@ -27,11 +27,14 @@
     <div v-else class="comments-list">
       <!-- Top-level comments -->
       <div v-for="comment in topLevelComments" :key="comment.id" class="comment-thread">
-        <div class="comment-item">
-          <div class="comment-avatar">{{ getInitial(comment) }}</div>
-          <div class="comment-body">
-            <div class="comment-header">
-              <span class="comment-author">{{ getAuthorName(comment) }}</span>
+          <div class="comment-item">
+            <div class="comment-avatar" @click="goUser(comment.userId)" title="查看主页">
+              <img v-if="comment.avatar" :src="comment.avatar" class="comment-avatar-img" alt="" />
+              <template v-else>{{ getInitial(comment) }}</template>
+            </div>
+            <div class="comment-body">
+              <div class="comment-header">
+                <span class="comment-author" @click="goUser(comment.userId)" title="查看主页">{{ getAuthorName(comment) }}</span>
               <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
             </div>
             <p class="comment-text">{{ comment.content }}</p>
@@ -65,10 +68,13 @@
             <!-- Child comments -->
             <div v-if="getReplies(comment.id).length > 0" class="child-comments">
               <div v-for="reply in getReplies(comment.id)" :key="reply.id" class="comment-item child">
-                <div class="comment-avatar small">{{ getInitial(reply) }}</div>
+                <div class="comment-avatar small" @click="goUser(reply.userId)" title="查看主页">
+                  <img v-if="reply.avatar" :src="reply.avatar" class="comment-avatar-img" alt="" />
+                  <template v-else>{{ getInitial(reply) }}</template>
+                </div>
                 <div class="comment-body">
                   <div class="comment-header">
-                    <span class="comment-author">{{ getAuthorName(reply) }}</span>
+                    <span class="comment-author" @click="goUser(reply.userId)" title="查看主页">{{ getAuthorName(reply) }}</span>
                     <span class="comment-time">{{ formatTime(reply.createdAt) }}</span>
                   </div>
                   <p class="comment-text">{{ reply.content }}</p>
@@ -91,7 +97,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { getComments, addComment, deleteComment } from '../api/comments.js';
 import { useAuth } from '../stores/auth.js';
 
@@ -100,6 +106,11 @@ const props = defineProps({
 });
 
 const { isAuthenticated, user } = useAuth();
+const router = useRouter();
+
+const goUser = (id) => {
+  if (id) router.push({ name: 'user-profile', params: { id } });
+};
 
 const comments = ref([]);
 const loading = ref(false);
@@ -271,6 +282,19 @@ onMounted(fetchComments);
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 0.2s;
+}
+
+.comment-avatar:hover { transform: scale(1.08); }
+
+.comment-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .comment-avatar.small { width: 28px; height: 28px; min-width: 28px; font-size: 0.8rem; }
@@ -289,7 +313,11 @@ onMounted(fetchComments);
   font-weight: 700;
   font-size: 0.9rem;
   color: #ccff00;
+  cursor: pointer;
+  transition: opacity 0.2s;
 }
+
+.comment-author:hover { text-decoration: underline; opacity: 0.85; }
 
 .comment-time {
   font-family: 'JetBrains Mono', monospace;

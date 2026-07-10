@@ -125,6 +125,28 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserProfileVo getUserById(Long id) {
+        User user = userMapper.selectById(id);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        return toVo(user);
+    }
+
+    private UserProfileVo toVo(User user) {
+        UserProfileVo vo = new UserProfileVo();
+        vo.setId(user.getId());
+        vo.setUsername(user.getUsername());
+        vo.setEmail(user.getEmail());
+        vo.setNickname(user.getNickname());
+        vo.setAvatar(user.getAvatar());
+        vo.setBio(user.getBio());
+        vo.setRoles(getUserRoles(user.getId()));
+        vo.setCreatedAt(user.getCreatedAt());
+        return vo;
+    }
+
+    @Override
     @Transactional
     public UserProfileVo updateProfile(Long userId, UserProfileVo profileData) {
         LambdaUpdateWrapper<User> wrapper = new LambdaUpdateWrapper<>();

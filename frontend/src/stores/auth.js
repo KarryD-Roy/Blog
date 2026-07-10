@@ -16,6 +16,7 @@ export function useAuth() {
         id: data.userId,
         username: data.username,
         nickname: data.nickname,
+        avatar: data.avatar,
         roles: data.roles
       };
       localStorage.setItem('user', JSON.stringify(user.value));
@@ -34,6 +35,7 @@ export function useAuth() {
         id: data.userId,
         username: data.username,
         nickname: data.nickname,
+        avatar: data.avatar,
         roles: data.roles
       };
       localStorage.setItem('user', JSON.stringify(user.value));
@@ -58,6 +60,7 @@ export function useAuth() {
           id: res.data.data.id,
           username: res.data.data.username,
           nickname: res.data.data.nickname,
+          avatar: res.data.data.avatar,
           roles: res.data.data.roles
         };
         localStorage.setItem('user', JSON.stringify(user.value));
@@ -78,5 +81,12 @@ export function useAuth() {
     fetchProfile();
   }
 
-  return { user, token, isAuthenticated, login, register, logout, fetchProfile };
+  // 更新本地用户信息（如头像/昵称变更后同步）
+  const updateUser = (partial) => {
+    if (!user.value) return;
+    user.value = { ...user.value, ...partial };
+    localStorage.setItem('user', JSON.stringify(user.value));
+  };
+
+  return { user, token, isAuthenticated, login, register, logout, fetchProfile, updateUser };
 }

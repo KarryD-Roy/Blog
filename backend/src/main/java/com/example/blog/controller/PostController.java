@@ -41,15 +41,19 @@ public class PostController {
     private final UserService userService;
     private final MessageService messageService;
 
-    @Cacheable(cacheNames = "posts:list", key = "'p'+#page+'_'+#size")
+    @Cacheable(cacheNames = "posts:list", key = "'p'+#page+'_'+#size+'_a'+#authorId")
     @GetMapping
     public ApiResponse<IPage<Post>> page(
             @RequestParam(defaultValue = "1") long page,
-            @RequestParam(defaultValue = "10") long size) {
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long authorId) {
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<>();
         // 公开列表只展示已发布的文章，不展示待审核/已驳回的
-        wrapper.eq(Post::getStatus, "PUBLISHED")
-               .orderByDesc(Post::getPinned)
+        wrapper.eq(Post::getStatus, "PUBLISHED");
+        if (authorId != null) {
+            wrapper.eq(Post::getUserId, authorId);
+        }
+        wrapper.orderByDesc(Post::getPinned)
                .orderByDesc(Post::getCreatedAt);
         IPage<Post> result = postService.page(Page.of(page, size), wrapper);
 

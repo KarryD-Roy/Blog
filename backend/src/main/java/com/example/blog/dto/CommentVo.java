@@ -21,4 +21,5 @@ public class CommentVo {
     // 作者真实注册信息，拒绝匿名占位符
     private String username;
     private String nickname;
+    private String avatar;
 }

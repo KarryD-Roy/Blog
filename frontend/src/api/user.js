@@ -29,3 +29,8 @@ export function getCheckinStatus() {
 export function assignRole(userId, roleName) {
   return api.put(`/users/${userId}/role/${roleName}`);
 }
+
+// 获取指定用户的公开主页信息
+export function getUserById(id) {
+  return api.get(`/users/${id}`);
+}
